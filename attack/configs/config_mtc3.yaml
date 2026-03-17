@@ -1,0 +1,188 @@
+global:
+  load_from_base_dir: true
+  target_model: "./"
+  tokenizer: "./"
+  datasets:
+    - json_train_path: "./train_subset.json"
+      json_test_path: "./test_subset.json"
+  batch_size: 1
+  seed: 42
+  device: "cuda"  # This will use all available GPUs
+  fpr_thresholds:
+    - 0.1
+    - 0.01
+    - 0.001
+  n_bootstrap_samples: 10
+  test_samples: null  # Adjust this number as needed
+  max_length: 512
+  cache_dir: null
+
+
+
+
+Mtc3-4-11:
+  module: "mtc3"
+  steps: 4
+  subset_size: 8          # l for each local subset vote
+  num_subsets: 128        # number of subsets per step
+  l_schedule: "linear"    # or "geometric"
+  min_mask_frac: 0.05     # ~5% of valid tokens masked at early steps
+  max_mask_frac: 0.50     # up to ~50% by the last step
+  batch_size: 8
+  max_length: 512
+  reference_model_path: "GSAI-ML/LLaDA-8B-Base"
+  reference_device: "cuda"
+  seed: 42
+  save_metadata: false
+  metadata_dir: ""  # Set via SAMA_METADATA_DIR env variable, or specify a path here
+  info_weighted_mask: true    # 高信息量 token 优先 masking
+  self_calibrate: true        # 自校准
+  n_cal: 8                    # 扰动变体数量
+  cal_strategy: "both"        # "window" / "shuffle" / "both"
+
+
+# Mtc3-8-11:
+#   module: "mtc3"
+#   steps: 8
+#   subset_size: 8          # l for each local subset vote
+#   num_subsets: 128        # number of subsets per step
+#   l_schedule: "linear"    # or "geometric"
+#   min_mask_frac: 0.05     # ~5% of valid tokens masked at early steps
+#   max_mask_frac: 0.50     # up to ~50% by the last step
+#   batch_size: 8
+#   max_length: 512
+#   reference_model_path: "GSAI-ML/LLaDA-8B-Base"
+#   reference_device: "cuda"
+#   seed: 42
+#   save_metadata: false
+#   info_weighted_mask: true    # 高信息量 token 优先 masking
+#   self_calibrate: true        # 自校准
+#   n_cal: 8                    # 扰动变体数量
+#   cal_strategy: "both"        # "window" / "shuffle" / "both"
+#   metadata_dir: ""  # Set via SAMA_METADATA_DIR env variable, or specify a path here
+
+Mtc3-2-11:
+  module: "mtc3"
+  steps: 2
+  subset_size: 8          # l for each local subset vote
+  num_subsets: 128        # number of subsets per step
+  l_schedule: "linear"    # or "geometric"
+  min_mask_frac: 0.05     # ~5% of valid tokens masked at early steps
+  max_mask_frac: 0.50     # up to ~50% by the last step
+  batch_size: 8
+  max_length: 512
+  reference_model_path: "GSAI-ML/LLaDA-8B-Base"
+  reference_device: "cuda"
+  seed: 42
+  save_metadata: false
+  info_weighted_mask: true    # 高信息量 token 优先 masking
+  self_calibrate: true        # 自校准
+  n_cal: 8                    # 扰动变体数量
+  cal_strategy: "both"        # "window" / "shuffle" / "both"
+  metadata_dir: ""  # Set via SAMA_METADATA_DIR env variable, or specify a path here
+
+
+Mtc3-1-11:
+  module: "mtc3"
+  steps: 1
+  subset_size: 8          # l for each local subset vote
+  num_subsets: 128        # number of subsets per step
+  l_schedule: "linear"    # or "geometric"
+  min_mask_frac: 0.05     # ~5% of valid tokens masked at early steps
+  max_mask_frac: 0.50     # up to ~50% by the last step
+  batch_size: 8
+  max_length: 512
+  reference_model_path: "GSAI-ML/LLaDA-8B-Base"
+  reference_device: "cuda"
+  seed: 42
+  save_metadata: false
+  info_weighted_mask: true    # 高信息量 token 优先 masking
+  self_calibrate: true        # 自校准
+  n_cal: 8                    # 扰动变体数量
+  cal_strategy: "both"        # "window" / "shuffle" / "both"
+  metadata_dir: ""  # Set via SAMA_METADATA_DIR env variable, or specify a path here
+
+
+
+Mtc3-4-01:
+  module: "mtc3"
+  steps: 4
+  subset_size: 8          # l for each local subset vote
+  num_subsets: 128        # number of subsets per step
+  l_schedule: "linear"    # or "geometric"
+  min_mask_frac: 0.05     # ~5% of valid tokens masked at early steps
+  max_mask_frac: 0.50     # up to ~50% by the last step
+  batch_size: 8
+  max_length: 512
+  reference_model_path: "GSAI-ML/LLaDA-8B-Base"
+  reference_device: "cuda"
+  seed: 42
+  save_metadata: false
+  metadata_dir: ""  # Set via SAMA_METADATA_DIR env variable, or specify a path here
+  info_weighted_mask: false    # 高信息量 token 优先 masking
+  self_calibrate: true        # 自校准
+  n_cal: 8                    # 扰动变体数量
+  cal_strategy: "both"        # "window" / "shuffle" / "both"
+
+
+# Mtc3-8-01:
+#   module: "mtc3"
+#   steps: 8
+#   subset_size: 8          # l for each local subset vote
+#   num_subsets: 128        # number of subsets per step
+#   l_schedule: "linear"    # or "geometric"
+#   min_mask_frac: 0.05     # ~5% of valid tokens masked at early steps
+#   max_mask_frac: 0.50     # up to ~50% by the last step
+#   batch_size: 8
+#   max_length: 512
+#   reference_model_path: "GSAI-ML/LLaDA-8B-Base"
+#   reference_device: "cuda"
+#   seed: 42
+#   save_metadata: false
+#   info_weighted_mask: false    # 高信息量 token 优先 masking
+#   self_calibrate: true        # 自校准
+#   n_cal: 8                    # 扰动变体数量
+#   cal_strategy: "both"        # "window" / "shuffle" / "both"
+#   metadata_dir: ""  # Set via SAMA_METADATA_DIR env variable, or specify a path here
+
+Mtc3-2-01:
+  module: "mtc3"
+  steps: 2
+  subset_size: 8          # l for each local subset vote
+  num_subsets: 128        # number of subsets per step
+  l_schedule: "linear"    # or "geometric"
+  min_mask_frac: 0.05     # ~5% of valid tokens masked at early steps
+  max_mask_frac: 0.50     # up to ~50% by the last step
+  batch_size: 8
+  max_length: 512
+  reference_model_path: "GSAI-ML/LLaDA-8B-Base"
+  reference_device: "cuda"
+  seed: 42
+  save_metadata: false
+  info_weighted_mask: false    # 高信息量 token 优先 masking
+  self_calibrate: true        # 自校准
+  n_cal: 8                    # 扰动变体数量
+  cal_strategy: "both"        # "window" / "shuffle" / "both"
+  metadata_dir: ""  # Set via SAMA_METADATA_DIR env variable, or specify a path here
+
+
+Mtc3-1-01:
+  module: "mtc3"
+  steps: 1
+  subset_size: 8          # l for each local subset vote
+  num_subsets: 128        # number of subsets per step
+  l_schedule: "linear"    # or "geometric"
+  min_mask_frac: 0.05     # ~5% of valid tokens masked at early steps
+  max_mask_frac: 0.50     # up to ~50% by the last step
+  batch_size: 8
+  max_length: 512
+  reference_model_path: "GSAI-ML/LLaDA-8B-Base"
+  reference_device: "cuda"
+  seed: 42
+  save_metadata: false
+  info_weighted_mask: false    # 高信息量 token 优先 masking
+  self_calibrate: true        # 自校准
+  n_cal: 8                    # 扰动变体数量
+  cal_strategy: "both"        # "window" / "shuffle" / "both"
+  metadata_dir: ""  # Set via SAMA_METADATA_DIR env variable, or specify a path here
+

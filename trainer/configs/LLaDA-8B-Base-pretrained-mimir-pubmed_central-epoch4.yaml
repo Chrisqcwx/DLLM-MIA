@@ -1,0 +1,39 @@
+run_name: LLaDA-8B-Base-pretrained-mimir-pubmed_central
+wandb_project: Diff_LLM
+wandb_group: SAMA
+
+dataset:
+  train:
+    type: local
+    path: ./mimir-pubmed_central/train.json
+  # val not provided -> We'll use test for val
+  test:
+    type: local
+    path: ./mimir-pubmed_central/test.json
+
+tokenizer:
+  identifier: GSAI-ML/LLaDA-8B-Base
+  max_length: 512
+
+model:
+  identifier: GSAI-ML/LLaDA-8B-Base
+  load_pretrained: true
+
+training:
+  output_dir: ./LLaDA-8B-Base-pretrained-mimir-pubmed_central-4_12_1.0e-5_4_512
+  # deepspeed_config: configs/ds_config.json
+  batch_size: 4
+  gradient_accumulation_steps: 12
+  learning_rate: 1.0e-5
+  weight_decay: 0.1
+  warmup_steps: 100
+  num_train_epochs: 4         # For epoch-based training
+  max_steps: -1                # Must be -1 to fully rely on epochs
+  eval_strategy: epoch
+  save_strategy: "no"
+  logging_strategy: epoch
+  save_total_limit: 1
+  bf16: true
+  fp16: false
+  #early_stopping_patience: 3
+  #early_stopping_threshold: 0.001

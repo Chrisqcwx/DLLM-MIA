@@ -1,0 +1,10 @@
+{
+  "zero_optimization": {
+    "stage": 1,
+    "offload_optimizer": null
+  },
+
+  "bf16": { "enabled": true },
+
+  "train_micro_batch_size_per_gpu": "auto"
+}

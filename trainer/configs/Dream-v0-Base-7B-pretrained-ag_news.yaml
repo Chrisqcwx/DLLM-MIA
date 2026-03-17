@@ -1,0 +1,39 @@
+run_name: Dream-v0-Base-7B-pretrained-ag_news
+wandb_project: Diff_LLM
+wandb_group: SAMA
+
+dataset:
+  train:
+    type: local
+    path: ./ag_news/train.json
+  # val not provided -> We'll use test for val
+  test:
+    type: local
+    path: ./ag_news/test.json
+
+tokenizer:
+  identifier: Dream-org/Dream-v0-Base-7B
+  max_length: 512
+
+model:
+  identifier: Dream-org/Dream-v0-Base-7B
+  load_pretrained: true
+
+training:
+  output_dir: ./Dream-v0-Base-7B-pretrained-ag_news-4_12_1.0e-5_10_512
+  # deepspeed_config: configs/ds_config.json
+  batch_size: 4
+  gradient_accumulation_steps: 12
+  learning_rate: 1.0e-5
+  weight_decay: 0.1
+  warmup_steps: 500
+  num_train_epochs: 10         # For epoch-based training
+  max_steps: -1                # Must be -1 to fully rely on epochs
+  eval_strategy: epoch
+  save_strategy: "no"
+  logging_strategy: epoch
+  save_total_limit: 1
+  bf16: true
+  fp16: false
+  #early_stopping_patience: 3
+  #early_stopping_threshold: 0.001
