@@ -308,8 +308,7 @@ class Baselineorigin2Attack(AbstractAttack):
         m = len(target_losses)
         if m == 0:
             return 0.0, []
-        s = min(subset_size, m)
-        # if s <= 0:
+
         return float(-target_losses.sum()), []
 
     def _subset_binary_comparison(

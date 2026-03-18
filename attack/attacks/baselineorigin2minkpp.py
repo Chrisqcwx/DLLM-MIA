@@ -15,7 +15,7 @@ from attack.attacks.utils import get_model_nll_params
 from attack.misc.models import ModelManager
 
 
-class BaselinecontrastAttack(AbstractAttack):
+class Baselineorigin2minkppAttack(AbstractAttack):
     """
     SAMA (Subset-Aggregated Membership Attack) for diffusion language models.
 
@@ -49,6 +49,7 @@ class BaselinecontrastAttack(AbstractAttack):
         self.num_steps = int(config.get("steps", 4))
         self.batch_size = int(config.get("batch_size", 8))
         self.max_length = int(config.get("max_length", 512))
+        self.mink = float(config.get("mink", 0.8))
 
         # v6 local-signal params (unchanged)
         self.subset_size = int(
@@ -91,20 +92,9 @@ class BaselinecontrastAttack(AbstractAttack):
                 self.model
             )
 
-        # Load reference (diffusion LM) used for comparison
-        self.ref_device = torch.device(config.get("reference_device", "cuda"))
-        ref_model_path = config.get('reference_model_path')
-        if not ref_model_path:
-            raise ValueError("reference_model_path must be specified")
-
         hf_token = config.get('hf_token') or os.environ.get('HF_TOKEN')
         if hf_token:
             login(token=hf_token)
-
-        self.ref_model, self.ref_tokenizer, _ = ModelManager.init_model(
-            ref_model_path, ref_model_path, self.ref_device
-        )
-        self.ref_mask_id, self.ref_shift_logits = get_model_nll_params(self.ref_model)
 
         # Seed for reproducible masking
         torch.manual_seed(self.seed)
@@ -157,15 +147,10 @@ class BaselinecontrastAttack(AbstractAttack):
         seq_len = input_ids.size(1)
 
         # Reference copies
-        input_ids_ref = input_ids.clone().to(self.ref_device)
-        attention_mask_ref = attention_mask.clone().to(self.ref_device)
 
         # Position-aware loss buffers
         cumulative_target_losses = torch.zeros(
             B, seq_len, dtype=torch.float32, device=self.device
-        )
-        cumulative_ref_losses = torch.zeros(
-            B, seq_len, dtype=torch.float32, device=self.ref_device
         )
 
         # Cumulative mask across steps (v8 uses fixed-l cardinality per step)
@@ -190,12 +175,10 @@ class BaselinecontrastAttack(AbstractAttack):
         for step in range(self.num_steps):
             step_metadata = []
 
-            cumulative_mask = torch.zeros_like(
-                input_ids, dtype=torch.bool
-            )  # on target device
+            new_mask = torch.zeros_like(input_ids, dtype=torch.bool)  # on target device
 
             # Linear schedule by default: l_s ~ [min_frac * L, max_frac * L] across steps
-            new_mask = torch.zeros_like(cumulative_mask)
+            # new_mask = torch.zeros_like(new_mask)
             for b in range(B):
                 Lb = int(valid_lengths[b].item())
                 if Lb == 0:
@@ -206,15 +189,13 @@ class BaselinecontrastAttack(AbstractAttack):
                 # mask 个数
                 desired_total = max(1, int(round(frac * Lb)))
                 # 占位的个数
-                current_total = int(
-                    (cumulative_mask[b] & attention_mask[b]).sum().item()
-                )
+                current_total = int((new_mask[b] & attention_mask[b]).sum().item())
                 to_add = max(0, desired_total - current_total)
                 if to_add == 0:
                     continue
 
                 # Sample new positions uniformly without replacement among currently unmasked valid tokens
-                unmasked_valid = (~cumulative_mask[b]) & attention_mask[b]
+                unmasked_valid = (~new_mask[b]) & attention_mask[b]
                 candidates = torch.where(unmasked_valid)[0]
                 if candidates.numel() == 0:
                     continue
@@ -229,12 +210,9 @@ class BaselinecontrastAttack(AbstractAttack):
                 # Nothing to add this step
                 continue
 
-            cumulative_mask = cumulative_mask | new_mask
-            cumulative_mask_ref = cumulative_mask.to(self.ref_device)
-
             # ---- Target model: compute CE over current masked context; store for *newly* masked positions
             masked_ids_target = input_ids.clone()
-            masked_ids_target[cumulative_mask] = self.target_mask_id
+            masked_ids_target[new_mask] = self.target_mask_id
 
             with torch.no_grad():
                 out = self.model(
@@ -247,47 +225,26 @@ class BaselinecontrastAttack(AbstractAttack):
                 if self.target_shift_logits:
                     logits = torch.cat([logits[:, :1, :], logits[:, :-1, :]], dim=1)
 
-                ce = (
-                    F.cross_entropy(
-                        logits.view(-1, logits.size(-1)),
-                        input_ids.view(-1),
-                        reduction='none',
-                    )
-                    .view(B, seq_len)
-                    .float()
+                # minkpp standardization
+                logp = torch.log_softmax(logits, dim=-1)
+                mu_logp = logp.mean(dim=-1)
+                std_logp = logp.std(dim=-1)
+                label_logp = logp.gather(dim=-1, index=input_ids.unsqueeze(-1)).squeeze(
+                    -1
                 )
+                standard_logp = (label_logp - mu_logp) / (std_logp + 1e-8)
 
-                cumulative_target_losses[new_mask] = ce[new_mask]
+                # ce = (
+                #     F.cross_entropy(
+                #         logits.view(-1, logits.size(-1)),
+                #         input_ids.view(-1),
+                #         reduction='none',
+                #     )
+                #     .view(B, seq_len)
+                #     .float()
+                # )
 
-            # ---- Reference model (diffusion LM)
-            masked_ids_ref = input_ids_ref.clone()
-            masked_ids_ref[cumulative_mask_ref] = self.ref_mask_id
-
-            with torch.no_grad():
-                out_r = self.ref_model(
-                    input_ids=masked_ids_ref,
-                    attention_mask=(
-                        attention_mask_ref if not self.ref_shift_logits else None
-                    ),
-                )
-                logits_r = out_r.logits if hasattr(out_r, 'logits') else out_r[0]
-                if self.ref_shift_logits:
-                    logits_r = torch.cat(
-                        [logits_r[:, :1, :], logits_r[:, :-1, :]], dim=1
-                    )
-
-                ce_r = (
-                    F.cross_entropy(
-                        logits_r.view(-1, logits_r.size(-1)),
-                        input_ids_ref.view(-1),
-                        reduction='none',
-                    )
-                    .view(B, seq_len)
-                    .float()
-                )
-
-                new_mask_ref = new_mask.to(self.ref_device)
-                cumulative_ref_losses[new_mask_ref] = ce_r[new_mask_ref]
+                cumulative_target_losses[new_mask] = -standard_logp[new_mask].float()
 
             for b in range(B):
                 masked_positions = torch.where(new_mask[b])[0]
@@ -298,13 +255,10 @@ class BaselinecontrastAttack(AbstractAttack):
                 t_losses = (
                     cumulative_target_losses[b][masked_positions].detach().cpu().numpy()
                 )
-                r_losses = (
-                    cumulative_ref_losses[b][masked_positions].detach().cpu().numpy()
-                )
 
                 score, subset_details = self._subset_binary_comparison_with_metadata(
                     t_losses,
-                    r_losses,
+                    None,
                     subset_size=min(self.subset_size, m),
                     num_subsets=self.num_subsets,
                 )
@@ -321,9 +275,6 @@ class BaselinecontrastAttack(AbstractAttack):
                             "masked_positions": masked_positions.cpu().tolist(),
                             "target_losses_mean": float(t_losses.mean()),
                             "target_losses_std": float(t_losses.std()),
-                            "ref_losses_mean": float(r_losses.mean()),
-                            "ref_losses_std": float(r_losses.std()),
-                            "loss_diff_mean": float((r_losses - t_losses).mean()),
                             "subset_comparisons": subset_details,
                         }
                     )
@@ -358,36 +309,13 @@ class BaselinecontrastAttack(AbstractAttack):
         subset_size: int,
         num_subsets: int,
     ):
-        m = min(len(target_losses), len(ref_losses))
-        if m == 0:
-            return 0.0, []
-        s = min(subset_size, m)
-        # if s <= 0:
-        return float(ref_losses.sum() - target_losses.sum()), []
+        # mink 选取最低的logp， 而ce loss是-log p 故选取最高的k个
+        # maxk loss
+        topk_num = int(len(target_losses) * self.mink)
+        topk_indices = np.argpartition(target_losses, -topk_num)[-topk_num:]
+        topk_losses = target_losses[topk_indices]
 
-        subset_details = []
-        idx_matrix = np.vstack(
-            [self.rng.choice(m, size=s, replace=False) for _ in range(num_subsets)]
-        ).astype(np.int64)
-
-        t_sel = target_losses[idx_matrix].sum(axis=1)
-        r_sel = ref_losses[idx_matrix].sum(axis=1)
-        comparisons = r_sel > t_sel
-
-        if self.save_metadata:
-            # Store sample of subset comparisons (first 10 to avoid huge files)
-            for i in range(min(10, num_subsets)):
-                subset_details.append(
-                    {
-                        "subset_idx": i,
-                        "positions": idx_matrix[i].tolist(),
-                        "target_sum": float(t_sel[i]),
-                        "ref_sum": float(r_sel[i]),
-                        "ref_wins": bool(comparisons[i]),
-                    }
-                )
-
-        return float(comparisons.mean()), subset_details
+        return float(-topk_losses.sum()), []
 
     def _subset_binary_comparison(
         self,

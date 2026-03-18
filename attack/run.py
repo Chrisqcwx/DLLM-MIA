@@ -96,6 +96,8 @@ class MIARunner:
             ds_name = get_printable_ds_name(ds_info)
             logging.info(f"Processing dataset: {ds_name}")
 
+            set_seed(self.args.seed)
+
             # Process dataset
             dataset = self.dataset_processor.init_dataset(
                 ds_info,

@@ -15,7 +15,7 @@ from attack.attacks.utils import get_model_nll_params
 from attack.misc.models import ModelManager
 
 
-class BaselineoriginAttack(AbstractAttack):
+class Baselineorigin2minkAttack(AbstractAttack):
     """
     SAMA (Subset-Aggregated Membership Attack) for diffusion language models.
 
@@ -49,6 +49,7 @@ class BaselineoriginAttack(AbstractAttack):
         self.num_steps = int(config.get("steps", 4))
         self.batch_size = int(config.get("batch_size", 8))
         self.max_length = int(config.get("max_length", 512))
+        self.mink = float(config.get("mink", 0.8))
 
         # v6 local-signal params (unchanged)
         self.subset_size = int(
@@ -174,44 +175,27 @@ class BaselineoriginAttack(AbstractAttack):
         for step in range(self.num_steps):
             step_metadata = []
 
-            cumulative_mask = torch.zeros_like(
-                input_ids, dtype=torch.bool
-            )  # on target device
+            new_mask = torch.zeros_like(input_ids, dtype=torch.bool)  # on target device
 
             # Linear schedule by default: l_s ~ [min_frac * L, max_frac * L] across steps
-            new_mask = torch.zeros_like(cumulative_mask)
+            # new_mask = torch.zeros_like(new_mask)
             for b in range(B):
                 Lb = int(valid_lengths[b].item())
                 if Lb == 0:
                     continue
 
-                if self.mask_schedule == "geometric":
-                    # Geometric spacing between min and max fractions
-                    r = (self.max_mask_frac / max(self.min_mask_frac, 1e-6)) ** (
-                        step / max(self.num_steps - 1, 1)
-                    )
-                    frac = min(
-                        self.max_mask_frac,
-                        max(self.min_mask_frac, self.min_mask_frac * r),
-                    )
-                else:
-                    # Linear spacing
-                    frac = self.min_mask_frac + (
-                        self.max_mask_frac - self.min_mask_frac
-                    ) * (step + 1) / (self.num_steps + 1)
+                frac = torch.rand(1).clamp(0.01, 0.99).item()
 
                 # mask 个数
                 desired_total = max(1, int(round(frac * Lb)))
                 # 占位的个数
-                current_total = int(
-                    (cumulative_mask[b] & attention_mask[b]).sum().item()
-                )
+                current_total = int((new_mask[b] & attention_mask[b]).sum().item())
                 to_add = max(0, desired_total - current_total)
                 if to_add == 0:
                     continue
 
                 # Sample new positions uniformly without replacement among currently unmasked valid tokens
-                unmasked_valid = (~cumulative_mask[b]) & attention_mask[b]
+                unmasked_valid = (~new_mask[b]) & attention_mask[b]
                 candidates = torch.where(unmasked_valid)[0]
                 if candidates.numel() == 0:
                     continue
@@ -226,11 +210,9 @@ class BaselineoriginAttack(AbstractAttack):
                 # Nothing to add this step
                 continue
 
-            cumulative_mask = cumulative_mask | new_mask
-
             # ---- Target model: compute CE over current masked context; store for *newly* masked positions
             masked_ids_target = input_ids.clone()
-            masked_ids_target[cumulative_mask] = self.target_mask_id
+            masked_ids_target[new_mask] = self.target_mask_id
 
             with torch.no_grad():
                 out = self.model(
@@ -318,12 +300,13 @@ class BaselineoriginAttack(AbstractAttack):
         subset_size: int,
         num_subsets: int,
     ):
-        m = len(target_losses)
-        if m == 0:
-            return 0.0, []
-        s = min(subset_size, m)
-        # if s <= 0:
-        return float(-target_losses.sum()), []
+        # mink 选取最低的logp， 而ce loss是-log p 故选取最高的k个
+        # maxk loss
+        topk_num = int(len(target_losses) * self.mink)
+        topk_indices = np.argpartition(target_losses, -topk_num)[-topk_num:]
+        topk_losses = target_losses[topk_indices]
+
+        return float(-topk_losses.sum()), []
 
     def _subset_binary_comparison(
         self,

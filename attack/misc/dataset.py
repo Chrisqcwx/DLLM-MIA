@@ -49,23 +49,30 @@ class DatasetProcessor:
         logging.info(
             f"Processing dataset for NLL: mask_id={mask_id}, shift_logits={shift_logits}"
         )
+        print(
+            f"Processing dataset for NLL: mask_id={mask_id}, shift_logits={shift_logits}, length={len(dataset)}"
+        )
 
         # Process dataset with NLL computation
         dataset = self._compute_nll(dataset, mask_id, shift_logits)
+        logging.info(f"Finished processing dataset for NLL")
 
         return dataset
 
     def _load_dataset(self, ds_info: Dict[str, Any], base_dir=None) -> Dataset:
         """Load dataset based on configuration."""
         if "json_train_path" in ds_info and "json_test_path" in ds_info:
+            print("Loading JSON dataset")
             return load_json_dataset(
                 ds_info["json_train_path"], ds_info["json_test_path"], base_dir=base_dir
             )
         elif "mimir_name" in ds_info:
+            print("Loading MIMIR dataset")
             return load_mimir_dataset(
                 name=ds_info["mimir_name"], split=ds_info["split"]
             )
         elif "name" in ds_info:
+            print("Loading HuggingFace dataset")
             from datasets import load_dataset
 
             return load_dataset(
@@ -171,12 +178,19 @@ def load_json_dataset(
 
     with open(train_path, 'r', encoding='utf-8') as f:
         train_data = json.load(f)['data']['text']
-    train_labels = [1] * len(train_data)
 
     # Load test subset (label 0)
     with open(test_path, 'r', encoding='utf-8') as f:
         test_data = json.load(f)['data']['text']
     test_labels = [0] * len(test_data)
+
+    if len(train_data) > len(test_data):
+        shuffle(train_data)
+        train_data = train_data[: len(test_data)]
+
+    print(f"Train data length: {len(train_data)} Test data length: {len(test_data)}")
+
+    train_labels = [1] * len(train_data)
 
     # Combine and shuffle
     all_texts = train_data + test_data
@@ -186,4 +200,6 @@ def load_json_dataset(
     shuffle(combined)
     all_texts, all_labels = zip(*combined)
 
-    return Dataset.from_dict({"text": list(all_texts), "label": list(all_labels)})
+    result = Dataset.from_dict({"text": list(all_texts), "label": list(all_labels)})
+    print(f"Dataset length: {len(result)}")
+    return result
