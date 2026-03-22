@@ -7,7 +7,8 @@
 # samanewloss
 
 
-for exp_name in LLaDA-8B-Base-pretrained-mimir-github-4_12_1.0e-4_10_512-lora \
+for exp_name in LLaDA-8B-Base-pretrained-mimir-github-4_12_1.0e-4_10_512-lora3 \
+LLaDA-8B-Base-pretrained-mimir-github-4_12_1.0e-4_10_512-lora4 \
     ; do
      
 # for exp_name in LLaDA-8B-Base-pretrained-mimir-github-4_12_1.0e-5_4_512 \
@@ -17,13 +18,13 @@ for exp_name in LLaDA-8B-Base-pretrained-mimir-github-4_12_1.0e-4_10_512-lora \
 # for exp_name in LLaDA-8B-Base-pretrained-mimir-arxiv-4_12_1.0e-5_10_512 ; do
 # for exp_ratio in 1 0.5 2; do
 
-for config_name in config_mtc5 config_all config_mtc ; do
+for config_name in config_mtc5noboxbool config_mtc5noboxminus config_mtc5noboxminusrelu; do
 
 # for div_type in r t m n; do
 
 output_dir=./attack_results/${exp_name}/${config_name}
 mkdir -p ${output_dir}
-CUDA_VISIBLE_DEVICES=7 SAMA_METADATA_DIR=$output_dir \
+CUDA_VISIBLE_DEVICES=5 SAMA_METADATA_DIR=$output_dir \
     python -m attack.run \
     -c attack/configs/${config_name}.yaml \
     --output ${output_dir} \

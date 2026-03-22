@@ -212,3 +212,6 @@ wandb/
 /wikitext_*
 
 *.bak
+
+test
+/attack_analyse

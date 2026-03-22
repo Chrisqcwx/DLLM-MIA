@@ -25,21 +25,22 @@ for exp_name in LLaDA-8B-Base-pretrained-mimir-github-4_12_1.0e-5_4_512 \
 # for exp_name in LLaDA-8B-Base-pretrained-mimir-arxiv-4_12_1.0e-5_10_512 ; do
 # for exp_ratio in 1 0.5 2; do
 
-for config_name in  config_mtc5maskfrac config_mtc5seed   ; do
+for config_name in config_mtc5pscale  ; do
 
 # for div_type in r t m n; do
 
 output_dir=./attack_results/${exp_name}/${config_name}
 mkdir -p ${output_dir}
-CUDA_VISIBLE_DEVICES=5  \
+CUDA_VISIBLE_DEVICES=7  \
     SAMA_METADATA_DIR=$output_dir \
-    python -m attack.run \
+    python -m attack.run_multiret \
     -c attack/configs/${config_name}.yaml \
     --output ${output_dir} \
     --base-dir /mnt/data/yuhongyao/paper_codes/difftext/SAMA/outputs/${exp_name} \
     --cache-dir ./attack_results/${exp_name}/cache \
     2>&1 | tee ${output_dir}/attack.log
 
+# exit 0
 done
 done
 # for exp_name in LLaDA-8B-Base-pretrained-mimir-github-4_12_1.0e-5_10_512 ; do

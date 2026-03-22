@@ -21,12 +21,12 @@ model:
 
 lora:
   enabled: true
-  r: 96
+  r: 32
   alpha: 16
-  target_modules: ["q_proj", "v_proj", "k_proj", "o_proj", "att_proj"]
+  target_modules: ["ff_proj", "up_proj", "ff_out"]
 
 training:
-  output_dir: ./LLaDA-8B-Base-pretrained-mimir-github-4_12_1.0e-4_10_512-lora3
+  output_dir: ./LLaDA-8B-Base-pretrained-mimir-github-4_12_1.0e-4_10_512-lora4
   # deepspeed_config: configs/ds_config.json
   batch_size: 4
   gradient_accumulation_steps: 12

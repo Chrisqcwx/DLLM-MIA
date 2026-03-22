@@ -6,6 +6,7 @@
 # "LLaDA-8B-Base-pretrained-ag_news.yaml" \
 
 for config_name in \
+  "LLaDA-8B-Base-pretrained-mimir-github-lora4.yaml" \
   "LLaDA-8B-Base-pretrained-mimir-github-lora3.yaml" \
    ;do
 # "LLaDA-8B-Base-pretrained-mimir-arxiv.yaml" \
@@ -16,7 +17,7 @@ for config_name in \
 # phoenixcat launch \
 #   --gpu-use-num 2 --gpu-ids 0-7 --threshold-gb 2 \
 #   -- \
-  CUDA_VISIBLE_DEVICES=3,7 accelerate launch --config_file ./trainer/accelerate.yaml \
+ CUDA_VISIBLE_DEVICES=2,5 accelerate launch --config_file ./trainer/accelerate.yaml \
   --num_machines 1 \
   --num_processes 2 \
   trainer/run.py \
