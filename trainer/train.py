@@ -1,6 +1,7 @@
 import logging
 import math
 import os
+import inspect
 from typing import Dict, Any, Optional, Union
 
 import torch
@@ -258,6 +259,31 @@ def initialize_trainer(
         "gradient_checkpointing": training_cfg.get("gradient_checkpointing", False) and not training_cfg.get(
             "deepspeed_config"),
     }
+
+    training_args_signature = inspect.signature(TrainingArguments.__init__)
+    supported_training_args = set(training_args_signature.parameters.keys())
+
+    if lora_cfg.get("enabled", False):
+        if "ddp_find_unused_parameters" in supported_training_args:
+            training_args_dict["ddp_find_unused_parameters"] = False
+            logger_init.info(
+                "Setting ddp_find_unused_parameters=False for LoRA + DDP compatibility."
+            )
+
+        if training_args_dict["gradient_checkpointing"]:
+            if "gradient_checkpointing_kwargs" in supported_training_args:
+                training_args_dict["gradient_checkpointing_kwargs"] = {
+                    "use_reentrant": False
+                }
+                logger_init.info(
+                    "Setting gradient_checkpointing_kwargs.use_reentrant=False for LoRA + DDP compatibility."
+                )
+            elif int(os.environ.get("WORLD_SIZE", "1")) > 1:
+                training_args_dict["gradient_checkpointing"] = False
+                logger_init.warning(
+                    "Current transformers version does not expose gradient_checkpointing_kwargs. "
+                    "Disabling gradient checkpointing under multi-GPU LoRA to avoid DDP backward conflicts."
+                )
 
     if training_args_dict["load_best_model_at_end"] and not training_args_dict["metric_for_best_model"]:
         training_args_dict["metric_for_best_model"] = "eval_loss"

@@ -1,4 +1,4 @@
-run_name: Dream-v0-Base-7B-pretrained-mimir-arxiv
+run_name: Dream-v0-Base-7B-pretrained-mimir-arxiv-lora
 wandb_project: Diff_LLM
 wandb_group: SAMA
 
@@ -6,29 +6,37 @@ dataset:
   train:
     type: local
     path: ./mimir-arxiv/train.json
-  # val not provided -> We'll use test for val
   test:
     type: local
     path: ./mimir-arxiv/test.json
 
 tokenizer:
   identifier: Dream-org/Dream-v0-Base-7B
-  max_length: 256
+  max_length: 512
 
 model:
   identifier: Dream-org/Dream-v0-Base-7B
   load_pretrained: true
 
+lora:
+  enabled: true
+  r: 16
+  lora_alpha: 32
+  lora_dropout: 0.05
+  target_modules: ["q_proj", "v_proj"]
+  bias: "none"
+  task_type: "CAUSAL_LM"
+  save_merged_model_at_end: true
+
 training:
-  output_dir: ./Dream-v0-Base-7B-pretrained-mimir-arxiv-1_48_1.0e-5_10_256
-  deepspeed_config: ./trainer/configs/ds_config copy.json
+  output_dir: ./Dream-v0-Base-7B-pretrained-mimir-arxiv-1_6_1.0e-4_10_512-lora
   batch_size: 1
-  gradient_accumulation_steps: 48
-  learning_rate: 1.0e-5
+  gradient_accumulation_steps: 6
+  learning_rate: 1.0e-4
   weight_decay: 0.1
   warmup_steps: 500
-  num_train_epochs: 10         # For epoch-based training
-  max_steps: -1                # Must be -1 to fully rely on epochs
+  num_train_epochs: 10
+  max_steps: -1
   eval_strategy: epoch
   save_strategy: "no"
   logging_strategy: epoch
@@ -36,5 +44,3 @@ training:
   bf16: true
   fp16: false
   gradient_checkpointing: true
-  #early_stopping_patience: 3
-  #early_stopping_threshold: 0.001

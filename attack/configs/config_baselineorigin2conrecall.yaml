@@ -1,0 +1,32 @@
+global:
+  load_from_base_dir: true
+  target_model: "./merged_model"
+  tokenizer: "./merged_model"
+  datasets:
+    - json_train_path: "./train_subset.json"
+      json_test_path: "./test_subset.json"
+  batch_size: 2
+  seed: 42
+  device: "cuda:0"
+  fpr_thresholds:
+    - 0.1
+    - 0.01
+    - 0.001
+  n_bootstrap_samples: 10
+  test_samples: null
+  max_length: 512
+  cache_dir: null
+
+Baselineorigin2conrecall-7shot-g1:
+  module: "baselineorigin2conrecall"
+  gamma: 1.0
+  n_shots: 7
+  dllm_mc_num: 8
+  dllm_mask_ratio: 0.5
+  prefix_separator: "\n\n"
+  prefix_max_chars_per_shot: null
+  batch_size: 2
+  max_length: 512
+  seed: 42
+  save_metadata: true
+  metadata_dir: "./attack_results/debug_conrecall"

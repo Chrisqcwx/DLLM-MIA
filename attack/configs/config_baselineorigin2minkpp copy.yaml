@@ -1,0 +1,38 @@
+global:
+  load_from_base_dir: true
+  target_model: "./merged_model"
+  tokenizer: "./merged_model"
+  datasets:
+    - json_train_path: "./train_subset.json"
+      json_test_path: "./test_subset.json"
+  batch_size: 2
+  seed: 42
+  device: "cuda:0"
+  fpr_thresholds:
+    - 0.1
+    - 0.01
+    - 0.001
+  n_bootstrap_samples: 10
+  test_samples: null  # Adjust this number as needed
+  max_length: 512
+  cache_dir: null
+
+
+
+
+Baselineorigin2minkpp-4-0.8:
+  module: "baselineorigin2minkpp"
+  mink: 0.8
+  steps: 4
+  subset_size: 8          # l for each local subset vote
+  num_subsets: 128        # number of subsets per step
+  l_schedule: "linear"    # or "geometric"
+  min_mask_frac: 0.05     # ~5% of valid tokens masked at early steps
+  max_mask_frac: 0.50     # up to ~50% by the last step
+  batch_size: 2
+  max_length: 512
+  reference_model_path: "Dream-org/Dream-v0-Base-7B"
+  reference_device: "cuda:1"
+  seed: 42
+  save_metadata: false
+  metadata_dir: ""  # Set via SAMA_METADATA_DIR env variable, or specify a path here

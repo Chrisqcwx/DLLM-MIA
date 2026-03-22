@@ -1,11 +1,10 @@
-datasets==3.6.0
+datasets==3.1.0
 dp_transformers==1.0.0
-flash_attn==2.8.3
-numpy==2.4.1
+numpy==1.26.4
 opacus==1.5.4
 peft==0.17.1
 prv_accountant==0.2.0
 PyYAML==6.0.2
-torch==2.8.0
-transformers==4.56.1
-xformers==0.0.34
+torch==2.4.1
+transformers==4.35.0
+xformers==0.0.28.post3
