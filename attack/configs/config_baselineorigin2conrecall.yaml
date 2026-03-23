@@ -1,13 +1,13 @@
 global:
   load_from_base_dir: true
-  target_model: "./merged_model"
-  tokenizer: "./merged_model"
+  target_model: "./"
+  tokenizer: "./"
   datasets:
     - json_train_path: "./train_subset.json"
       json_test_path: "./test_subset.json"
   batch_size: 2
   seed: 42
-  device: "cuda:0"
+  device: "cuda"
   fpr_thresholds:
     - 0.1
     - 0.01

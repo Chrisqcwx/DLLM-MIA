@@ -1,7 +1,7 @@
 global:
   load_from_base_dir: true
-  target_model: "./merged_model"
-  tokenizer: "./merged_model"
+  target_model: "./"
+  tokenizer: "./"
   datasets:
     - json_train_path: "./train_subset.json"
       json_test_path: "./test_subset.json"
@@ -19,8 +19,8 @@ global:
 
 Baselineorigin2dfmia-r50-cal256:
   module: "baselineorigin2dfmia"
-  reference_model_path: "Dream-org/Dream-v0-Base-7B"
-  reference_device: "cuda:1"
+  reference_model_path: "GSAI-ML/LLaDA-8B-Base"
+  reference_device: "cuda"
   stage1_score_column: "nlloss"
   pseudo_nonmember_ratio: 0.5
   min_pseudo_nonmembers: 64

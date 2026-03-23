@@ -1,7 +1,7 @@
 global:
   load_from_base_dir: true
-  target_model: "./merged_model"
-  tokenizer: "./merged_model"
+  target_model: "./"
+  tokenizer: "./"
   datasets:
     - json_train_path: "./train_subset.json"
       json_test_path: "./test_subset.json"
@@ -21,9 +21,9 @@ Mtc5Informia-ref_only-mean:
   module: "mtc5informia"
   mode: "ref_only"
   aggregation: "mean"
-  reference_model_path: "Dream-org/Dream-v0-Base-7B"
-  reference_device: "cuda:1"
-  dllm_mc_num: 2
+  reference_model_path: "GSAI-ML/LLaDA-8B-Base"
+  reference_device: "cuda"
+  dllm_mc_num: 4
   dllm_mask_ratio: 0.3
   masked_token_batch_size: 8
   token_weight_temperature: 1.0
@@ -39,9 +39,9 @@ Mtc5Informia-weight_only-mean:
   module: "mtc5informia"
   mode: "weight_only"
   aggregation: "mean"
-  reference_model_path: "Dream-org/Dream-v0-Base-7B"
-  reference_device: "cuda:1"
-  dllm_mc_num: 2
+  reference_model_path: "GSAI-ML/LLaDA-8B-Base"
+  reference_device: "cuda"
+  dllm_mc_num: 4
   dllm_mask_ratio: 0.3
   masked_token_batch_size: 8
   token_weight_temperature: 1.0
@@ -57,9 +57,9 @@ Mtc5Informia-hybrid-mean:
   module: "mtc5informia"
   mode: "hybrid"
   aggregation: "mean"
-  reference_model_path: "Dream-org/Dream-v0-Base-7B"
-  reference_device: "cuda:1"
-  dllm_mc_num: 2
+  reference_model_path: "GSAI-ML/LLaDA-8B-Base"
+  reference_device: "cuda"
+  dllm_mc_num: 4
   dllm_mask_ratio: 0.3
   masked_token_batch_size: 8
   token_weight_temperature: 1.0
