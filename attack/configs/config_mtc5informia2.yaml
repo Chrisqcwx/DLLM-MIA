@@ -1,0 +1,38 @@
+global:
+  load_from_base_dir: true
+  target_model: "./"
+  tokenizer: "./"
+  datasets:
+    - json_train_path: "./train_subset.json"
+      json_test_path: "./test_subset.json"
+  batch_size: 1
+  seed: 42
+  device: "cuda:0"
+  fpr_thresholds:
+    - 0.1
+    - 0.01
+    - 0.001
+  n_bootstrap_samples: 10
+  test_samples: 100
+  max_length: 256
+  cache_dir: null
+
+Mtc5Informia-hybrid-mean:
+  module: "mtc5informia"
+  mode: "hybrid"
+  aggregation: "mean"
+  reference_model_path: "GSAI-ML/LLaDA-8B-Base"
+  reference_device: "cuda:1"
+  dllm_mc_num: 4
+  dllm_mask_ratio: 0.15
+  sampled_token_ratio: 0.25
+  min_sampled_tokens: 8
+  masked_token_batch_size: 8
+  token_weight_temperature: 1.0
+  token_weight_floor: 1e-8
+  batch_size: 1
+  max_length: 256
+  seed: 42
+  save_metadata: true
+  save_token_scores: true
+  metadata_dir: "./attack_results_mtc5informia/debug_mtc5informia"

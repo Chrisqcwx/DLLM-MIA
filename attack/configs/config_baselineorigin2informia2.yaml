@@ -1,0 +1,56 @@
+global:
+  load_from_base_dir: true
+  target_model: "./"
+  tokenizer: "./"
+  datasets:
+    - json_train_path: "./train_subset.json"
+      json_test_path: "./test_subset.json"
+  batch_size: 2
+  seed: 42
+  device: "cuda"
+  fpr_thresholds:
+    - 0.1
+    - 0.01
+    - 0.001
+  n_bootstrap_samples: 10
+  test_samples: null
+  max_length: 512
+  cache_dir: null
+
+Baselineorigin2informia2-mean:
+  module: "baselineorigin2informia2"
+  reference_model_path: "GSAI-ML/LLaDA-8B-Base"
+  reference_device: "cuda"
+  aggregation: "mean"
+  offline_a: 1.0
+  dllm_mc_num: 8
+  dllm_mask_ratio: 0.5
+  sampled_token_ratio: 0.25
+  min_sampled_tokens: 8
+  masked_token_batch_size: 16
+  batch_size: 2
+  max_length: 512
+  seed: 42
+  save_metadata: true
+  save_token_scores: true
+  metadata_dir: "./attack_results/debug_informia"
+
+Baselineorigin2informia2-min_k:
+  module: "baselineorigin2informia2"
+  reference_model_path: "GSAI-ML/LLaDA-8B-Bases"
+  reference_device: "cuda"
+  aggregation: "min_k"
+  min_k_ratio: 0.2
+  min_token_count: 5
+  offline_a: 1.0
+  dllm_mc_num: 8
+  dllm_mask_ratio: 0.5
+  sampled_token_ratio: 0.25
+  min_sampled_tokens: 8
+  masked_token_batch_size: 16
+  batch_size: 2
+  max_length: 512
+  seed: 42
+  save_metadata: true
+  save_token_scores: true
+  metadata_dir: "./attack_results/debug_informia"
