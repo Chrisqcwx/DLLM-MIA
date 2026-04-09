@@ -21,11 +21,11 @@
 # "LLaDA-8B-Base-pretrained-mimir-arxiv-lora.yaml" ;do
 for epoch_num in 10; do
 
-config_name=LLaDA-8B-Base-pretrained-mimir-github-epoch${epoch_num}.yaml
+config_name=LLaDA-8B-Base-pretrained-mimir-arxiv.yaml
 
-CUDA_VISIBLE_DEVICES=3,4 accelerate launch --config_file ./trainer/accelerate.yaml \
+CUDA_VISIBLE_DEVICES=1 accelerate launch --config_file ./trainer/accelerate.yaml \
   --num_machines 1 \
-  --num_processes 2 \
+  --num_processes 1 \
   trainer/run.py \
   --config_path "./trainer/configs/ablations/epoch_num/$config_name" \
   --base_path "./outputs/ablations/epoch_num" \

@@ -115,14 +115,44 @@ class DatasetProcessor:
             col for col in dataset.column_names if col not in keep_columns
         ]
 
-        ret = dataset.map(
-            process_batch,
-            batched=True,
-            batch_size=self.global_config["batch_size"],
-            remove_columns=remove_columns,
-            load_from_cache_file=False,
-            num_proc=self.global_config.get("dataset_map_num_proc", 1),
-        )
+        # ret = dataset.map(
+        #     process_batch,
+        #     batched=True,
+        #     batch_size=self.global_config["batch_size"],
+        #     remove_columns=remove_columns,
+        #     load_from_cache_file=False,
+        #     num_proc=self.global_config.get("dataset_map_num_proc", 1),
+        # )
+
+        requested_num_proc = int(self.global_config.get("dataset_map_num_proc", 1))
+        map_kwargs = {
+            "batched": True,
+            "batch_size": self.global_config["batch_size"],
+            "remove_columns": remove_columns,
+            "load_from_cache_file": False,
+        }
+
+        # Passing num_proc=1 can still route through multiprocess in some datasets versions.
+        if requested_num_proc > 1:
+            map_kwargs["num_proc"] = requested_num_proc
+
+        try:
+            ret = dataset.map(process_batch, **map_kwargs)
+        except RuntimeError as exc:
+            if "subprocesses has abruptly died" not in str(exc):
+                raise
+            logging.warning(
+                "dataset.map failed with subprocess mode (num_proc=%s). "
+                "Retrying in forced single-process mode.",
+                requested_num_proc,
+            )
+            ret = dataset.map(
+                process_batch,
+                batched=True,
+                batch_size=self.global_config["batch_size"],
+                remove_columns=remove_columns,
+                load_from_cache_file=False,
+            )
 
         if self.cache_dir:
             torch.save(ret, cache_dataset_file)

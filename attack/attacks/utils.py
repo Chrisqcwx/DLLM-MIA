@@ -35,7 +35,7 @@ def _forward_process_llada(
 
     # 2) For each maskable position, do a Bernoulli draw to decide if it becomes masked.
     bernoulli_draws = torch.rand(maskable_count, device=device)
-    final_mask_bool = (bernoulli_draws < p)  # True => will be masked
+    final_mask_bool = bernoulli_draws < p  # True => will be masked
 
     # 3) Construct perturbed_seq
     perturbed_seq = seq.clone()
@@ -91,7 +91,7 @@ def compute_nlloss(
             if actual_prefix_to_ignore > 0:
                 effective_prefix_mask[:actual_prefix_to_ignore] = True
 
-        padded_positions = (attn_i == 0)
+        padded_positions = attn_i == 0
         effective_prefix_mask = effective_prefix_mask | padded_positions
 
         accumulated_loss = 0.0
@@ -99,7 +99,9 @@ def compute_nlloss(
 
         for _ in range(mc_num):
             # Pass the specific mask_id for this model
-            noisy_seq, p_mask_values = _forward_process_llada(seq_i, mask_id, effective_prefix_mask)
+            noisy_seq, p_mask_values = _forward_process_llada(
+                seq_i, mask_id, effective_prefix_mask
+            )
 
             # Model expects a batch, so unsqueeze
             # outputs.logits will be (1, seq_len_for_noisy_seq, vocab_size)
@@ -110,14 +112,16 @@ def compute_nlloss(
             if shift_logits:
                 # Shifts logits: new_logits[t] = old_logits[t-1] (for t>0)
                 # This aligns predictions if model predicts token t+1 from input t
-                logits_batch = torch.cat([logits_batch[:, :1, :], logits_batch[:, :-1, :]], dim=1)
+                logits_batch = torch.cat(
+                    [logits_batch[:, :1, :], logits_batch[:, :-1, :]], dim=1
+                )
 
             # Squeeze out the batch dimension of 1 to get (L, V)
             logits_for_loss_calc = logits_batch.squeeze(0)
             # --- End Conditional Logit Shifting ---
 
             # Identify positions that were ACTUALLY masked to mask_id AND are not part of the prefix/padding
-            masked_positions_in_noisy = (noisy_seq == mask_id)
+            masked_positions_in_noisy = noisy_seq == mask_id
             final_masked_for_loss = masked_positions_in_noisy & (~effective_prefix_mask)
 
             if final_masked_for_loss.any():
@@ -146,21 +150,20 @@ def compute_nlloss(
 
 
 def batch_nlloss(
-        batch: Dict[str, Any],
-        model: PreTrainedModel,
-        tokenizer: PreTrainedTokenizer,
-        device: torch.device,
-        shift_logits: bool,
-        mask_id: int,
-        ignore_prefix: Optional[int] = None,
-        key: str = 'nlloss',
-        max_length: int = 512,
-        mc_num: int = 3
+    batch: Dict[str, Any],
+    model: PreTrainedModel,
+    tokenizer: PreTrainedTokenizer,
+    device: torch.device,
+    shift_logits: bool,
+    mask_id: int,
+    ignore_prefix: Optional[int] = None,
+    key: str = 'nlloss',
+    max_length: int = 512,
+    mc_num: int = 3,
 ) -> Dict[str, np.ndarray]:  # Return type updated to reflect np.ndarray
     texts = batch['text']
     tokenized = tokenizer.batch_encode_plus(
-        texts, return_tensors='pt', padding=True,
-        truncation=True, max_length=max_length
+        texts, return_tensors='pt', padding=True, truncation=True, max_length=max_length
     )
     token_ids = tokenized['input_ids'].to(device)
     attention_mask = tokenized['attention_mask'].to(device)
@@ -173,7 +176,7 @@ def batch_nlloss(
         shift_logits=shift_logits,
         ignore_prefix=ignore_prefix,
         mc_num=mc_num,
-        mask_id=mask_id
+        mask_id=mask_id,
     )
 
     # compute_nlloss returns a numpy array, one NLL value per sample in the batch.
@@ -184,16 +187,18 @@ def make_recall_prefix(dataset, n_shots, perplexity_bucket=None):
     """Create a prefix from random samples in the dataset."""
     if perplexity_bucket is not None:
         dataset = dataset.filter(lambda x: x["perplexity_bucket"] == perplexity_bucket)
-    
+
     indices = random.sample(range(len(dataset)), n_shots)
     prefixes = [dataset[i]["text"] for i in indices]
-    
+
     return " ".join(prefixes)
 
 
-def get_model_nll_params(model_instance: torch.nn.Module,
-                          default_llada_mask_id: int = 126336,
-                          default_dream_mask_id: int = 151666):
+def get_model_nll_params(
+    model_instance: torch.nn.Module,
+    default_llada_mask_id: int = 126336,
+    default_dream_mask_id: int = 151666,
+):
     """
     Determines mask_id and shift_logits based on the model's type.
     """
@@ -201,7 +206,11 @@ def get_model_nll_params(model_instance: torch.nn.Module,
     if isinstance(unwrapped_model, torch.nn.DataParallel):
         unwrapped_model = unwrapped_model.module
     # Ensure PeftModel is defined (e.g., from try-except import)
-    if 'PeftModel' in globals() and PeftModel is not None and isinstance(unwrapped_model, PeftModel):
+    if (
+        'PeftModel' in globals()
+        and PeftModel is not None
+        and isinstance(unwrapped_model, PeftModel)
+    ):
         unwrapped_model = unwrapped_model.base_model.model
 
     model_type_str = None
@@ -210,18 +219,29 @@ def get_model_nll_params(model_instance: torch.nn.Module,
     if hasattr(unwrapped_model, 'config'):
         if hasattr(unwrapped_model.config, 'model_type'):
             model_type_str = unwrapped_model.config.model_type
-        if hasattr(unwrapped_model.config, 'mask_id') and unwrapped_model.config.mask_id is not None:
+        if (
+            hasattr(unwrapped_model.config, 'mask_id')
+            and unwrapped_model.config.mask_id is not None
+        ):
             config_mask_id = unwrapped_model.config.mask_id
 
     determined_shift_logits = False
-    determined_mask_id = config_mask_id  # Prioritize mask_id from model's own config if available
+    determined_mask_id = (
+        config_mask_id  # Prioritize mask_id from model's own config if available
+    )
 
     # Match model_type using the keys you registered with AutoConfig (e.g., "llada", "Dream")
     if model_type_str == "Dream":  # Assuming "Dream" is the model_type for DreamConfig
-        determined_mask_id = default_dream_mask_id  # Override with specific Dream mask_id
+        determined_mask_id = (
+            default_dream_mask_id  # Override with specific Dream mask_id
+        )
         determined_shift_logits = True
-    elif model_type_str == "llada":  # Assuming "llada" is the model_type for LLaDAConfig
-        determined_mask_id = default_llada_mask_id  # Override with specific LLaDA mask_id
+    elif (
+        model_type_str == "llada"
+    ):  # Assuming "llada" is the model_type for LLaDAConfig
+        determined_mask_id = (
+            default_llada_mask_id  # Override with specific LLaDA mask_id
+        )
         determined_shift_logits = False
     else:
         if determined_mask_id is None:  # If not found in config and type is unknown
@@ -233,6 +253,117 @@ def get_model_nll_params(model_instance: torch.nn.Module,
             f"Model class: {type(unwrapped_model).__name__}"
         )
 
-    print(f"Model NLL params determined for {type(unwrapped_model).__name__} (type: {model_type_str}): "
-          f"mask_id={determined_mask_id}, shift_logits={determined_shift_logits}")
+    print(
+        f"Model NLL params determined for {type(unwrapped_model).__name__} (type: {model_type_str}): "
+        f"mask_id={determined_mask_id}, shift_logits={determined_shift_logits}"
+    )
     return determined_mask_id, determined_shift_logits
+
+
+def get_model_embedding_layer(
+    model_instance: torch.nn.Module,
+    default_llada_mask_id: int = 126336,
+    default_dream_mask_id: int = 151666,
+):
+    """
+    Determines mask_id and shift_logits based on the model's type.
+    """
+    unwrapped_model = model_instance
+    if isinstance(unwrapped_model, torch.nn.DataParallel):
+        unwrapped_model = unwrapped_model.module
+    # Ensure PeftModel is defined (e.g., from try-except import)
+    if (
+        'PeftModel' in globals()
+        and PeftModel is not None
+        and isinstance(unwrapped_model, PeftModel)
+    ):
+        unwrapped_model = unwrapped_model.base_model.model
+
+    model_type_str = None
+
+    if hasattr(unwrapped_model, 'config'):
+        if hasattr(unwrapped_model.config, 'model_type'):
+            model_type_str = unwrapped_model.config.model_type
+        if (
+            hasattr(unwrapped_model.config, 'mask_id')
+            and unwrapped_model.config.mask_id is not None
+        ):
+            config_mask_id = unwrapped_model.config.mask_id
+
+    # Match model_type using the keys you registered with AutoConfig (e.g., "llada", "Dream")
+    if (
+        'dream' in model_type_str.lower()
+    ):  # Assuming "Dream" is the model_type for DreamConfig
+        return unwrapped_model.get_input_embeddings(), "inputs_embeds"
+    elif (
+        'llada' in model_type_str.lower()
+    ):  # Assuming "llada" is the model_type for LLaDAConfig
+        return unwrapped_model.get_input_embeddings(), "inputs_embeds"
+    else:
+        return unwrapped_model.get_input_embeddings(), "inputs_embeds"
+        raise NotImplementedError(
+            f"Unknown model_type '{model_type_str}' for automatic embedding layer retrieval. "
+        )
+        if determined_mask_id is None:  # If not found in config and type is unknown
+            determined_mask_id = default_llada_mask_id  # Fallback to a general default
+        print(
+            f"Unknown model_type '{model_type_str}' for automatic NLL param setting or "
+            f"mask_id not found in its config. Using mask_id={determined_mask_id}, "
+            f"shift_logits={determined_shift_logits} (default for unknown). "
+            f"Model class: {type(unwrapped_model).__name__}"
+        )
+
+    print(
+        f"Model NLL params determined for {type(unwrapped_model).__name__} (type: {model_type_str}): "
+        f"mask_id={determined_mask_id}, shift_logits={determined_shift_logits}"
+    )
+    return determined_mask_id, determined_shift_logits
+
+
+def get_model_final_norm_linear_layer(
+    model_instance: torch.nn.Module,
+    default_llada_mask_id: int = 126336,
+    default_dream_mask_id: int = 151666,
+):
+    """
+    Determines mask_id and shift_logits based on the model's type.
+    """
+    unwrapped_model = model_instance
+    if isinstance(unwrapped_model, torch.nn.DataParallel):
+        unwrapped_model = unwrapped_model.module
+    # Ensure PeftModel is defined (e.g., from try-except import)
+    if (
+        'PeftModel' in globals()
+        and PeftModel is not None
+        and isinstance(unwrapped_model, PeftModel)
+    ):
+        unwrapped_model = unwrapped_model.base_model.model
+
+    model_type_str = None
+
+    if hasattr(unwrapped_model, 'config'):
+        if hasattr(unwrapped_model.config, 'model_type'):
+            model_type_str = unwrapped_model.config.model_type
+        if (
+            hasattr(unwrapped_model.config, 'mask_id')
+            and unwrapped_model.config.mask_id is not None
+        ):
+            config_mask_id = unwrapped_model.config.mask_id
+
+    # Match model_type using the keys you registered with AutoConfig (e.g., "llada", "Dream")
+    if (
+        'dream' in model_type_str.lower()
+    ):  # Assuming "Dream" is the model_type for DreamConfig
+        return unwrapped_model.model.norm, unwrapped_model.lm_head  # , "inputs_embeds"
+    elif (
+        'llada' in model_type_str.lower()
+    ):  # Assuming "llada" is the model_type for LLaDAConfig
+        return (
+            unwrapped_model.model.transformer.ln_f,
+            unwrapped_model.model.transformer.ff_out,
+        )  # , "inputs_embeds"
+    else:
+        # return unwrapped_model.get_input_embeddings(), "inputs_embeds"
+        raise NotImplementedError(
+            f"Unknown model_type '{model_type_str}' for automatic embedding layer retrieval. "
+        )

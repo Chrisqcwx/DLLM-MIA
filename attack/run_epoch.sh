@@ -7,10 +7,12 @@ exp_name=LLaDA-8B-Base-pretrained-mimir-github-4_12_1.0e-5_10_512
 # samanewloss
 
 
-for exp_name in LLaDA-8B-Base-pretrained-mimir-github-4_12_1.0e-5_10_512 \
+for exp_name in LLaDA-8B-Base-pretrained-mimir-arxiv-4_12_1.0e-5_10_512 \
     ; do
 
-for epoch in 10 20 31 41 52 62 72 83 93 100; do
+# for epoch in 10 20 31 41 52 62 72 83 93 100; do
+
+for epoch in 20 41 62 83 104 125 145 166 187 200; do
      
 # for exp_name in LLaDA-8B-Base-pretrained-mimir-github-4_12_1.0e-5_4_512 \
 #      ; do
@@ -19,13 +21,13 @@ for epoch in 10 20 31 41 52 62 72 83 93 100; do
 # for exp_name in LLaDA-8B-Base-pretrained-mimir-arxiv-4_12_1.0e-5_10_512 ; do
 # for exp_ratio in 1 0.5 2; do
 
-for config_name in config_mtc5 ; do
+for config_name in config_mtc5depend3 ; do
 
 # for div_type in r t m n; do
 
 output_dir=./attack_results/ablations/epoch/${epoch}/${exp_name}/${config_name}
 mkdir -p ${output_dir}
-CUDA_VISIBLE_DEVICES=4 SAMA_METADATA_DIR=$output_dir \
+CUDA_VISIBLE_DEVICES=1 SAMA_METADATA_DIR=$output_dir \
     python -m attack.run \
     -c attack/configs/${config_name}.yaml \
     --output ${output_dir} \

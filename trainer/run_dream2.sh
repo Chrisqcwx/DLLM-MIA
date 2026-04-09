@@ -4,8 +4,7 @@
 # "LLaDA-8B-Base-pretrained-mimir-arxiv-lora.yaml" \
 # "LLaDA-8B-Base-pretrained-mimir-github.yaml" \
 
-for config_name in "Dream-v0-Base-7B-pretrained-ag_news.yaml" \
-"Dream-v0-Base-7B-pretrained-mimir-arxiv.yaml";do
+for config_name in "Dream-v0-Base-7B-pretrained-mimir-pile_cc-epoch4.yaml";do
 # "LLaDA-8B-Base-pretrained-mimir-arxiv.yaml" \
 # for config_name in \
 # "LLaDA-8B-Base-pretrained-mimir-arxiv-lora.yaml" ;do

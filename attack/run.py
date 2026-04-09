@@ -150,6 +150,8 @@ class MIARunner:
                 attack_config,
                 self.device,
             )
+            if hasattr(dataset, "info") and hasattr(dataset.info, "__dict__"):
+                dataset.info.__dict__.pop("task_templates", None)
             processed_dataset = attack_instance.run(dataset)
 
             # Compute metrics

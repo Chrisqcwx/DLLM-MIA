@@ -14,20 +14,24 @@
 # "LLaDA-8B-Base-pretrained-xsum.yaml" \
 # "LLaDA-8B-Base-pretrained-mimir-pubmed_central.yaml" ;do
 
+  # Dream-v0-Base-7B-pretrained-mimir-arxiv-lora-attn2.yaml \
+  # Dream-v0-Base-7B-pretrained-mimir-arxiv-lora-mlp1.yaml \
+  # Dream-v0-Base-7B-pretrained-mimir-arxiv-lora-mlp2.yaml \
+  # Dream-v0-Base-7B-pretrained-mimir-arxiv-lora-attn1.yaml \
 for config_name in \
-  LLaDA-8B-Base-pretrained-mimir-wikipedia-epoch4.yaml \
-  LLaDA-8B-Base-pretrained-mimir-pubmed_central-epoch4.yaml \
-  Dream-v0-Base-7B-pretrained-mimir-wikipedia-epoch4.yaml \
-  Dream-v0-Base-7B-pretrained-mimir-pubmed_central-epoch4.yaml \
+  LLaDA-8B-Base-pretrained-mimir-arxiv-lora-mlpr1.yaml \
+  LLaDA-8B-Base-pretrained-mimir-arxiv-lora-mlpr2ffproj.yaml \
+  LLaDA-8B-Base-pretrained-mimir-arxiv-lora-mlpr2uproj.yaml \
+  LLaDA-8B-Base-pretrained-mimir-arxiv-lora-mlpr2ffout.yaml \
  ;do
 # "LLaDA-8B-Base-pretrained-mimir-arxiv.yaml" \
 # for config_name in \
 # "LLaDA-8B-Base-pretrained-mimir-arxiv-lora.yaml" ;do
 
 
-CUDA_VISIBLE_DEVICES=3,4 accelerate launch --config_file ./trainer/accelerate.yaml \
+CUDA_VISIBLE_DEVICES=0 accelerate launch --config_file ./trainer/accelerate.yaml \
   --num_machines 1 \
-  --num_processes 2 \
+  --num_processes 1 \
   trainer/run.py \
   --config_path "./trainer/configs/$config_name" \
   --base_path "./outputs" \

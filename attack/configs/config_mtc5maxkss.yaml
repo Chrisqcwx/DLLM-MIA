@@ -1,0 +1,110 @@
+global:
+  load_from_base_dir: true
+  target_model: "./"
+  tokenizer: "./"
+  datasets:
+    - json_train_path: "./train_subset.json"
+      json_test_path: "./test_subset.json"
+  batch_size: 1
+  seed: 42
+  device: "cuda"  # This will use all available GPUs
+  fpr_thresholds:
+    - 0.1
+    - 0.01
+    - 0.001
+  n_bootstrap_samples: 10
+  test_samples: null  # Adjust this number as needed
+  max_length: 512
+  cache_dir: null
+
+
+
+
+Mtc5maxkss-4-1.0:
+  module: "mtc5maxkss"
+  steps: 4
+  maxkss: 1.0
+  subset_size: 8          # l for each local subset vote
+  num_subsets: 128        # number of subsets per step
+  l_schedule: "linear"    # or "geometric"
+  min_mask_frac: 0.05     # ~5% of valid tokens masked at early steps
+  max_mask_frac: 0.50     # up to ~50% by the last step
+  batch_size: 8
+  max_length: 512
+  reference_model_path: "GSAI-ML/LLaDA-8B-Base"
+  reference_device: "cuda"
+  seed: 42
+  save_metadata: false
+  metadata_dir: ""  # Set via SAMA_METADATA_DIR env variable, or specify a path here
+
+
+Mtc5maxkss-4-0.9:
+  module: "mtc5maxkss"
+  steps: 4
+  maxkss: 0.9
+  subset_size: 8          # l for each local subset vote
+  num_subsets: 128        # number of subsets per step
+  l_schedule: "linear"    # or "geometric"
+  min_mask_frac: 0.05     # ~5% of valid tokens masked at early steps
+  max_mask_frac: 0.50     # up to ~50% by the last step
+  batch_size: 8
+  max_length: 512
+  reference_model_path: "GSAI-ML/LLaDA-8B-Base"
+  reference_device: "cuda"
+  seed: 42
+  save_metadata: false
+  metadata_dir: ""  # Set via SAMA_METADATA_DIR env variable, or specify a path here
+
+
+Mtc5maxkss-4-0.8:
+  module: "mtc5maxkss"
+  steps: 4
+  maxkss: 0.8
+  subset_size: 8          # l for each local subset vote
+  num_subsets: 128        # number of subsets per step
+  l_schedule: "linear"    # or "geometric"
+  min_mask_frac: 0.05     # ~5% of valid tokens masked at early steps
+  max_mask_frac: 0.50     # up to ~50% by the last step
+  batch_size: 8
+  max_length: 512
+  reference_model_path: "GSAI-ML/LLaDA-8B-Base"
+  reference_device: "cuda"
+  seed: 42
+  save_metadata: false
+  metadata_dir: ""  # Set via SAMA_METADATA_DIR env variable, or specify a path here
+
+
+Mtc5maxkss-4-0.7:
+  module: "mtc5maxkss"
+  steps: 4
+  maxkss: 0.7
+  subset_size: 8          # l for each local subset vote
+  num_subsets: 128        # number of subsets per step
+  l_schedule: "linear"    # or "geometric"
+  min_mask_frac: 0.05     # ~5% of valid tokens masked at early steps
+  max_mask_frac: 0.50     # up to ~50% by the last step
+  batch_size: 8
+  max_length: 512
+  reference_model_path: "GSAI-ML/LLaDA-8B-Base"
+  reference_device: "cuda"
+  seed: 42
+  save_metadata: false
+  metadata_dir: ""  # Set via SAMA_METADATA_DIR env variable, or specify a path here
+
+
+Mtc5maxkss-4-0.5:
+  module: "mtc5maxkss"
+  steps: 4
+  maxkss: 0.5
+  subset_size: 8          # l for each local subset vote
+  num_subsets: 128        # number of subsets per step
+  l_schedule: "linear"    # or "geometric"
+  min_mask_frac: 0.05     # ~5% of valid tokens masked at early steps
+  max_mask_frac: 0.50     # up to ~50% by the last step
+  batch_size: 8
+  max_length: 512
+  reference_model_path: "GSAI-ML/LLaDA-8B-Base"
+  reference_device: "cuda"
+  seed: 42
+  save_metadata: false
+  metadata_dir: ""  # Set via SAMA_METADATA_DIR env variable, or specify a path here
