@@ -25,18 +25,12 @@
 #     ; do
      
 for exp_name in  \
-    LLaDA-8B-Base-pretrained-mimir-arxiv-4_12_1.0e-4_10_512-lora-mlp1 \
-    LLaDA-8B-Base-pretrained-mimir-arxiv-4_12_1.0e-4_10_512-lora-mlp2 \
-    LLaDA-8B-Base-pretrained-mimir-arxiv-4_12_1.0e-4_10_512-lora-attn1 \
-    LLaDA-8B-Base-pretrained-mimir-arxiv-4_12_1.0e-4_10_512-lora-attn2 \
-    LLaDA-8B-Base-pretrained-mimir-arxiv-4_12_1.0e-4_10_512-lora-mlp3 \
-    LLaDA-8B-Base-pretrained-mimir-arxiv-4_12_1.0e-4_10_512-lora-mlp4 \
-    LLaDA-8B-Base-pretrained-mimir-arxiv-4_12_1.0e-4_10_512-lora-attn3 \
-    LLaDA-8B-Base-pretrained-mimir-arxiv-4_12_1.0e-4_10_512-lora-attn4 \
-    LLaDA-8B-Base-pretrained-mimir-arxiv-4_12_1.0e-4_10_512-lora-mlpr1 \
-    LLaDA-8B-Base-pretrained-mimir-arxiv-4_12_1.0e-4_10_512-lora-mlpr2 \
-    LLaDA-8B-Base-pretrained-mimir-arxiv-4_12_1.0e-4_10_512-lora-mlpr4 \
-    LLaDA-8B-Base-pretrained-mimir-arxiv-4_12_1.0e-4_10_512-lora-mlpr8 \
+    LLaDA-8B-Base-pretrained-mimir-arxiv-4_12_1.0e-4_10_512-lora-mlpr2-epoch4 \
+    LLaDA-8B-Base-pretrained-mimir-arxiv-4_12_1.0e-4_10_512-lora-mlpr4-epoch4 \
+    LLaDA-8B-Base-pretrained-mimir-arxiv-4_12_1.0e-4_10_512-lora-mlpr8-epoch4 \
+    LLaDA-8B-Base-pretrained-mimir-arxiv-4_12_1.0e-4_10_512-lora-mlpr16-epoch4 \
+    LLaDA-8B-Base-pretrained-mimir-arxiv-4_12_1.0e-4_10_512-lora-mlpr32-epoch4 \
+    LLaDA-8B-Base-pretrained-mimir-arxiv-4_12_1.0e-4_10_512-lora-mlpr64-epoch4 \
      ; do
 
 # LLaDA-8B-Base-pretrained-mimir-arxiv-4_12_1.0e-5_10_512-lora
@@ -58,7 +52,7 @@ else
     echo "Running ${output_dir}"
     
 mkdir -p ${output_dir}
-CUDA_VISIBLE_DEVICES=2 SAMA_METADATA_DIR=$output_dir \
+CUDA_VISIBLE_DEVICES=3 SAMA_METADATA_DIR=$output_dir \
     python -m attack.run \
     -c attack/configs/${config_name}.yaml \
     --output ${output_dir} \

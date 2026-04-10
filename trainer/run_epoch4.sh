@@ -19,17 +19,19 @@
   # Dream-v0-Base-7B-pretrained-mimir-arxiv-lora-mlp2.yaml \
   # Dream-v0-Base-7B-pretrained-mimir-arxiv-lora-attn1.yaml \
 for config_name in \
-  LLaDA-8B-Base-pretrained-mimir-arxiv-lora-mlpr1.yaml \
-  LLaDA-8B-Base-pretrained-mimir-arxiv-lora-mlpr2ffproj.yaml \
-  LLaDA-8B-Base-pretrained-mimir-arxiv-lora-mlpr2uproj.yaml \
-  LLaDA-8B-Base-pretrained-mimir-arxiv-lora-mlpr2ffout.yaml \
+  LLaDA-8B-Base-pretrained-mimir-arxiv-lora-mlpr2-epoch4.yaml \
+  LLaDA-8B-Base-pretrained-mimir-arxiv-lora-mlpr4-epoch4.yaml \
+  LLaDA-8B-Base-pretrained-mimir-arxiv-lora-mlpr8-epoch4.yaml \
+  LLaDA-8B-Base-pretrained-mimir-arxiv-lora-mlpr16-epoch4.yaml \
+  LLaDA-8B-Base-pretrained-mimir-arxiv-lora-mlpr32-epoch4.yaml \
+  LLaDA-8B-Base-pretrained-mimir-arxiv-lora-mlpr64-epoch4.yaml \
  ;do
 # "LLaDA-8B-Base-pretrained-mimir-arxiv.yaml" \
 # for config_name in \
 # "LLaDA-8B-Base-pretrained-mimir-arxiv-lora.yaml" ;do
 
 
-CUDA_VISIBLE_DEVICES=0 accelerate launch --config_file ./trainer/accelerate.yaml \
+CUDA_VISIBLE_DEVICES=3 accelerate launch --config_file ./trainer/accelerate.yaml \
   --num_machines 1 \
   --num_processes 1 \
   trainer/run.py \
