@@ -11,7 +11,9 @@ for exp_name in LLaDA-8B-Base-pretrained-mimir-arxiv-4_12_1.0e-5_10_512 \
     ; do
 
 # for epoch in 10 20 31 41 52 62 72 83 93 100; do
-
+for config_name in config_mtc5depend4bydistance5  ; do
+# config_mtc5depend4bydistance
+# for config_name in config_mtc5depend4penaltyhuge ; do
 for epoch in 20 41 62 83 104 125 145 166 187 200; do
      
 # for exp_name in LLaDA-8B-Base-pretrained-mimir-github-4_12_1.0e-5_4_512 \
@@ -20,21 +22,31 @@ for epoch in 20 41 62 83 104 125 145 166 187 200; do
 # LLaDA-8B-Base-pretrained-mimir-arxiv-4_12_1.0e-5_10_512-lora
 # for exp_name in LLaDA-8B-Base-pretrained-mimir-arxiv-4_12_1.0e-5_10_512 ; do
 # for exp_ratio in 1 0.5 2; do
+# export TRANSFORMERS_OFFLINE=1
+# export HF_HUB_OFFLINE=1
 
-for config_name in config_mtc5depend4 ; do
 
 # for div_type in r t m n; do
 
 output_dir=./attack_results/ablations/epoch/${epoch}/${exp_name}/${config_name}
+
+if ls ${output_dir}/*.json 1> /dev/null 2>&1;
+then
+    echo "Skip ${output_dir}"
+    sleep 1s
+else
+    echo "Running ${output_dir}"
+    sleep 1s
 mkdir -p ${output_dir}
-CUDA_VISIBLE_DEVICES=1 SAMA_METADATA_DIR=$output_dir \
+CUDA_VISIBLE_DEVICES=3 \
+SAMA_METADATA_DIR=$output_dir \
     python -m attack.run \
     -c attack/configs/${config_name}.yaml \
     --output ${output_dir} \
     --base-dir /mnt/data/yuhongyao/paper_codes/difftext/SAMA/outputs/ablations/epoch_num/ablations/epoch_num/${exp_name}/ckpts/checkpoint-${epoch} \
     --cache-dir ./attack_results/${exp_name}/cache \
     2>&1 | tee ${output_dir}/attack.log
-
+fi
 done
 done
 done

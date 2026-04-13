@@ -14,90 +14,8 @@ from attack.attacks.utils import get_model_nll_params
 # from attack.run import init_model
 from attack.misc.models import ModelManager
 
-import torch
 
-import torch
-
-
-import torch
-from transformers.modeling_outputs import CausalLMOutput
-
-
-class DummyModel(torch.nn.Module):
-
-    def __init__(self, vocab_size):
-        super().__init__()
-        self.vocab_size = vocab_size
-        self.dummy_param = torch.nn.Parameter(torch.zeros(1))
-
-    @property
-    def device(self):
-        return self.dummy_param.device
-
-    def forward(self, input_ids, attention_mask=None, **kwargs):
-        dummy_logits = torch.zeros(
-            input_ids.shape[0], input_ids.shape[1], self.vocab_size
-        ).to(input_ids.device)
-        return CausalLMOutput(logits=dummy_logits)
-
-
-def sample_engine(attn_weights, n_samples, k_list, alpha=1.0, lambda_penalty=2.0):
-    """
-    attn_weights: (L, L) 注意力矩阵
-    n_samples: 采样总次数 N
-    k_list: 长度为 N 的列表，每次采样的 k 值
-    alpha: 内部连通性控制。正值表示排斥（不连通），负值表示吸引（连通），0 为随机。
-    lambda_penalty: 跨采样多样性控制。越大则不同 N 之间的重合度越低。
-    """
-    L = attn_weights.shape[0]
-    # 对称化处理，保证 A[i,j] == A[j,i]
-    adj = (attn_weights + attn_weights.t()).float()
-
-    # 记录每个点在所有采样中被选中的总次数
-    global_counts = torch.zeros(L, device=attn_weights.device)
-    all_results = []
-
-    for i in range(n_samples):
-        target_k = k_list[i]
-        selected = []
-
-        # --- 1. 初始点选择 (考虑全局多样性) ---
-        # 选出被选中次数最少的点作为种子，增加 N 之间的差异
-        # 加上微小扰动打破平衡
-        seed_scores = global_counts + torch.randn(L, device=attn_weights.device) * 0.01
-        start_node = torch.argmin(seed_scores).item()
-
-        selected.append(start_node)
-        # current_conn 记录当前集合对剩余点的累积影响
-        current_conn = adj[start_node].clone()
-
-        # --- 2. 迭代采样 ---
-        for _ in range(target_k - 1):
-            # 核心计算公式：
-            # score = 内部连通性贡献(alpha * current_conn) + 跨采样多样性惩罚(lambda * counts)
-            score = (alpha * current_conn) + (lambda_penalty * global_counts)
-
-            # 屏蔽掉已经选过的点
-            score[selected] = float('inf')
-
-            # 为了进一步增加 N 之间的随机性，从得分最低的前 M 个点中随机选一个
-            m_val = min(3, L - len(selected))
-            candidate_indices = torch.topk(score, k=m_val, largest=False).indices
-            next_node = candidate_indices[torch.randint(0, m_val, (1,))].item()
-
-            selected.append(next_node)
-            # 更新内部连通性累积量
-            current_conn += adj[next_node]
-
-        # --- 3. 更新全局状态 ---
-        global_counts[selected] += 1
-        all_results.append(torch.LongTensor(selected))
-
-    return all_results
-
-
-# MTC2 + mask for token weight
-class Mtc5dependtargetAttack(AbstractAttack):
+class Baselinecontrast2Attack(AbstractAttack):
     """
     SAMA (Subset-Aggregated Membership Attack) for diffusion language models.
 
@@ -131,7 +49,6 @@ class Mtc5dependtargetAttack(AbstractAttack):
         self.num_steps = int(config.get("steps", 4))
         self.batch_size = int(config.get("batch_size", 8))
         self.max_length = int(config.get("max_length", 512))
-        self.temperature = float(config.get("temperature", 1.0))
 
         # v6 local-signal params (unchanged)
         self.subset_size = int(
@@ -148,13 +65,6 @@ class Mtc5dependtargetAttack(AbstractAttack):
         self.mask_schedule = config.get(
             "l_schedule", "linear"
         )  # "linear" or "geometric"
-
-        self.sample_alpha = float(config.get("sample_alpha", 1.0))
-        self.lambda_penalty = float(config.get("lambda_penalty", 1.0))
-        self.weight_start_layer_ratio = float(
-            config.get("weight_start_layer_ratio", 0.0)
-        )
-        self.weight_end_layer_ratio = float(config.get("weight_end_layer_ratio", 1.0))
 
         # METADATA SAVING
         self.save_metadata = config.get("save_metadata", True)
@@ -182,33 +92,21 @@ class Mtc5dependtargetAttack(AbstractAttack):
             )
 
         # Load reference (diffusion LM) used for comparison
-        ref_model_path = config.get("reference_model_path")
-        # if not ref_model_path:
-        #     raise ValueError("DF-MIA requires 'reference_model_path' in the config.")
-        self.ref_device = torch.device(config.get("reference_device", str(device)))
-        if ref_model_path:
-            self.ref_model, self.ref_tokenizer, _ = ModelManager.init_model(
-                ref_model_path, ref_model_path, self.ref_device
-            )
-            self.ref_mask_id, self.ref_shift_logits = get_model_nll_params(
-                self.ref_model
-            )
-        else:
-            self.ref_model = DummyModel(tokenizer.vocab_size).to(self.ref_device)
-            self.ref_tokenizer = self.tokenizer
-            self.ref_mask_id, self.ref_shift_logits = get_model_nll_params(self.model)
+        self.ref_device = torch.device(config.get("reference_device", "cuda"))
+        ref_model_path = config.get('reference_model_path')
+        if not ref_model_path:
+            raise ValueError("reference_model_path must be specified")
 
-        # hf_token = config.get('hf_token') or os.environ.get('HF_TOKEN')
-        # if hf_token:
-        #     login(token=hf_token)
+        hf_token = config.get('hf_token') or os.environ.get('HF_TOKEN')
+        if hf_token:
+            login(token=hf_token)
 
-        # self.ref_model, self.ref_tokenizer, _ = ModelManager.init_model(
-        #     ref_model_path, ref_model_path, self.ref_device
-        # )
-        # self.ref_mask_id, self.ref_shift_logits = get_model_nll_params(self.ref_model)
+        self.ref_model, self.ref_tokenizer, _ = ModelManager.init_model(
+            ref_model_path, ref_model_path, self.ref_device
+        )
+        self.ref_mask_id, self.ref_shift_logits = get_model_nll_params(self.ref_model)
 
         # Seed for reproducible masking
-        self.rng2 = torch.Generator().manual_seed(self.seed)
         torch.manual_seed(self.seed)
 
     # ------------------------------ Public API ------------------------------
@@ -240,67 +138,6 @@ class Mtc5dependtargetAttack(AbstractAttack):
         return dataset
 
     # --------------------------- Internals -----------------------------
-    def _compute_weights(self, input_ids_ref, attention_mask_ref):
-        """
-        用 reference 模型在原始（未 mask）输入上的 token-level loss 作为位置权重。
-        高 loss 位置 → 高信息量 → 优先 mask。
-        """
-        B, L = input_ids_ref.shape
-        real_L = attention_mask_ref.sum(dim=1)
-        all_attns = []
-        with torch.no_grad():
-            out = self.model(
-                input_ids=input_ids_ref,
-                attention_mask=(
-                    attention_mask_ref if not self.ref_shift_logits else None
-                ),
-                output_attentions=True,
-            )
-            logits = out.logits if hasattr(out, 'logits') else out[0]
-            attentions = out.attentions
-            assert (
-                attentions is not None
-            ), "Reference model must output attentions for token weighting"
-            for b in range(B):
-                b_attns = []
-                num_layers = len(attentions)
-                start_layer = int(self.weight_start_layer_ratio * num_layers)
-                end_layer = int(self.weight_end_layer_ratio * num_layers)
-                if end_layer <= start_layer:
-                    end_layer = start_layer + 1
-                for layer_weight in attentions[start_layer:end_layer]:
-                    # layer_weight: (B, num_heads, L, L)
-                    # 取该样本的有效部分，平均头部和层数
-                    valid_attn = layer_weight[
-                        b, :, : real_L[b], : real_L[b]
-                    ]  # (num_heads, Lb, Lb)
-                    b_attns.append(valid_attn.mean(dim=0))  # (Lb, Lb)
-                all_attns.append(
-                    torch.stack(b_attns, dim=0).mean(dim=0).cpu()
-                )  # (Lb, Lb)
-            # attentions = torch.stack([a.mean(dim=1) for a in attentions], dim=0).mean(
-            #     dim=0
-            # )  # (num_layers, B, num_heads, L, L) -> (B, L, L)
-        return all_attns
-        #     if self.ref_shift_logits:
-        #         logits = torch.cat([logits[:, :1, :], logits[:, :-1, :]], dim=1)
-
-        #     ce = (
-        #         F.cross_entropy(
-        #             logits.view(-1, logits.size(-1)),
-        #             input_ids_ref.view(-1),
-        #             reduction='none',
-        #         )
-        #         .view(B, L)
-        #         .float()
-        #     )  # (B, L)
-
-        # # padding 位置权重置 0，剩余位置用 softmax 归一化
-        # ce = ce * attention_mask_ref.float().to(self.ref_device)
-        # # 避免全零行
-        # ce = ce + 1e-8
-        # weights = ce / ce.sum(dim=1, keepdim=True)  # (B, L), 归一化为概率
-        # return weights  # 返回 CPU 上的权重供后续采样
 
     def _compute_batch_scores(self, texts, batch_start_idx):
         B = len(texts)
@@ -339,11 +176,6 @@ class Mtc5dependtargetAttack(AbstractAttack):
         # Precompute valid lengths per sample
         valid_lengths = attention_mask.sum(dim=1)  # (B,)
 
-        weight_matrixs = self._compute_weights(
-            input_ids_ref, attention_mask_ref
-        )  # (B, L)
-        all_samples = []
-
         # Initialize metadata for each sample
         for b in range(B):
             batch_metadata.append(
@@ -355,56 +187,49 @@ class Mtc5dependtargetAttack(AbstractAttack):
                 }
             )
 
-            k_list = []
+        for step in range(self.num_steps):
+            step_metadata = []
 
-            for step in range(self.num_steps):
-                # for b in range(B):
+            cumulative_mask = torch.zeros_like(
+                input_ids, dtype=torch.bool
+            )  # on target device
+
+            # Linear schedule by default: l_s ~ [min_frac * L, max_frac * L] across steps
+            new_mask = torch.zeros_like(cumulative_mask)
+            for b in range(B):
                 Lb = int(valid_lengths[b].item())
                 if Lb == 0:
                     continue
 
-                if self.mask_schedule == "geometric":
-                    # Geometric spacing between min and max fractions
-                    r = (self.max_mask_frac / max(self.min_mask_frac, 1e-6)) ** (
-                        step / max(self.num_steps - 1, 1)
-                    )
-                    frac = min(
-                        self.max_mask_frac,
-                        max(self.min_mask_frac, self.min_mask_frac * r),
-                    )
-                else:
-                    # Linear spacing
-                    frac = self.min_mask_frac + (
-                        self.max_mask_frac - self.min_mask_frac
-                    ) * (step + 1) / (self.num_steps + 1)
+                frac = torch.rand(1).clamp(0.01, 0.99).item()
 
                 # mask 个数
                 desired_total = max(1, int(round(frac * Lb)))
-                k_list.append(desired_total)
+                # 占位的个数
+                current_total = int(
+                    (cumulative_mask[b] & attention_mask[b]).sum().item()
+                )
+                to_add = max(0, desired_total - current_total)
+                if to_add == 0:
+                    continue
 
-            b_samples = sample_engine(
-                weight_matrixs[b],
-                self.num_steps,
-                k_list,
-                alpha=self.sample_alpha,
-                lambda_penalty=self.lambda_penalty,
-            )
-            all_samples.append(b_samples)
+                # Sample new positions uniformly without replacement among currently unmasked valid tokens
+                unmasked_valid = (~cumulative_mask[b]) & attention_mask[b]
+                candidates = torch.where(unmasked_valid)[0]
+                if candidates.numel() == 0:
+                    continue
+                if to_add > candidates.numel():
+                    to_add = int(candidates.numel())
 
-        for step in range(self.num_steps):
-            step_metadata = []
-
-            new_mask = torch.zeros_like(input_ids, dtype=torch.bool)  # on target device
-            for b in range(B):
-                chosen = all_samples[b][step].to(new_mask.device)
+                perm = torch.randperm(candidates.numel(), device=self.device)
+                chosen = candidates[perm[:to_add]]
                 new_mask[b, chosen] = True
 
             if not new_mask.any():
                 # Nothing to add this step
                 continue
 
-            cumulative_mask = new_mask
-
+            cumulative_mask = cumulative_mask | new_mask
             cumulative_mask_ref = cumulative_mask.to(self.ref_device)
 
             # ---- Target model: compute CE over current masked context; store for *newly* masked positions
@@ -419,7 +244,6 @@ class Mtc5dependtargetAttack(AbstractAttack):
                     ),
                 )
                 logits = out.logits if hasattr(out, 'logits') else out[0]
-                logits = logits / self.temperature
                 if self.target_shift_logits:
                     logits = torch.cat([logits[:, :1, :], logits[:, :-1, :]], dim=1)
 
@@ -447,7 +271,6 @@ class Mtc5dependtargetAttack(AbstractAttack):
                     ),
                 )
                 logits_r = out_r.logits if hasattr(out_r, 'logits') else out_r[0]
-                logits_r = logits_r / self.temperature
                 if self.ref_shift_logits:
                     logits_r = torch.cat(
                         [logits_r[:, :1, :], logits_r[:, :-1, :]], dim=1
@@ -539,8 +362,8 @@ class Mtc5dependtargetAttack(AbstractAttack):
         if m == 0:
             return 0.0, []
         s = min(subset_size, m)
-        if s <= 0:
-            return float(ref_losses.sum() > target_losses.sum()), []
+        # if s <= 0:
+        return float(ref_losses.sum() - target_losses.sum()), []
 
         subset_details = []
         idx_matrix = np.vstack(

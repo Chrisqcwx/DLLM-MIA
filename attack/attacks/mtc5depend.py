@@ -77,6 +77,27 @@ def sample_engine(attn_weights, n_samples, k_list, alpha=1.0, lambda_penalty=2.0
     return all_results
 
 
+from transformers.modeling_outputs import CausalLMOutput
+
+
+class DummyModel(torch.nn.Module):
+
+    def __init__(self, vocab_size):
+        super().__init__()
+        self.vocab_size = vocab_size
+        self.dummy_param = torch.nn.Parameter(torch.zeros(1))
+
+    @property
+    def device(self):
+        return self.dummy_param.device
+
+    def forward(self, input_ids, attention_mask=None, **kwargs):
+        dummy_logits = torch.zeros(
+            input_ids.shape[0], input_ids.shape[1], self.vocab_size
+        ).to(input_ids.device)
+        return CausalLMOutput(logits=dummy_logits)
+
+
 # MTC2 + mask for token weight
 class Mtc5dependAttack(AbstractAttack):
     """
@@ -112,6 +133,7 @@ class Mtc5dependAttack(AbstractAttack):
         self.num_steps = int(config.get("steps", 4))
         self.batch_size = int(config.get("batch_size", 8))
         self.max_length = int(config.get("max_length", 512))
+        self.temperature = float(config.get("temperature", 1.0))
 
         # v6 local-signal params (unchanged)
         self.subset_size = int(
@@ -162,19 +184,30 @@ class Mtc5dependAttack(AbstractAttack):
             )
 
         # Load reference (diffusion LM) used for comparison
-        self.ref_device = torch.device(config.get("reference_device", "cuda"))
-        ref_model_path = config.get('reference_model_path')
-        if not ref_model_path:
-            raise ValueError("reference_model_path must be specified")
+        ref_model_path = config.get("reference_model_path")
+        # if not ref_model_path:
+        #     raise ValueError("DF-MIA requires 'reference_model_path' in the config.")
+        self.ref_device = torch.device(config.get("reference_device", str(device)))
+        if ref_model_path:
+            self.ref_model, self.ref_tokenizer, _ = ModelManager.init_model(
+                ref_model_path, ref_model_path, self.ref_device
+            )
+            self.ref_mask_id, self.ref_shift_logits = get_model_nll_params(
+                self.ref_model
+            )
+        else:
+            self.ref_model = DummyModel(tokenizer.vocab_size).to(self.ref_device)
+            self.ref_tokenizer = self.tokenizer
+            self.ref_mask_id, self.ref_shift_logits = get_model_nll_params(self.model)
 
-        hf_token = config.get('hf_token') or os.environ.get('HF_TOKEN')
-        if hf_token:
-            login(token=hf_token)
+        # hf_token = config.get('hf_token') or os.environ.get('HF_TOKEN')
+        # if hf_token:
+        #     login(token=hf_token)
 
-        self.ref_model, self.ref_tokenizer, _ = ModelManager.init_model(
-            ref_model_path, ref_model_path, self.ref_device
-        )
-        self.ref_mask_id, self.ref_shift_logits = get_model_nll_params(self.ref_model)
+        # self.ref_model, self.ref_tokenizer, _ = ModelManager.init_model(
+        #     ref_model_path, ref_model_path, self.ref_device
+        # )
+        # self.ref_mask_id, self.ref_shift_logits = get_model_nll_params(self.ref_model)
 
         # Seed for reproducible masking
         self.rng2 = torch.Generator().manual_seed(self.seed)
@@ -217,6 +250,8 @@ class Mtc5dependAttack(AbstractAttack):
         B, L = input_ids_ref.shape
         real_L = attention_mask_ref.sum(dim=1)
         all_attns = []
+
+        # use_
         with torch.no_grad():
             out = self.ref_model(
                 input_ids=input_ids_ref,
@@ -388,6 +423,7 @@ class Mtc5dependAttack(AbstractAttack):
                     ),
                 )
                 logits = out.logits if hasattr(out, 'logits') else out[0]
+                logits = logits / self.temperature
                 if self.target_shift_logits:
                     logits = torch.cat([logits[:, :1, :], logits[:, :-1, :]], dim=1)
 
@@ -415,6 +451,7 @@ class Mtc5dependAttack(AbstractAttack):
                     ),
                 )
                 logits_r = out_r.logits if hasattr(out_r, 'logits') else out_r[0]
+                logits_r = logits_r / self.temperature
                 if self.ref_shift_logits:
                     logits_r = torch.cat(
                         [logits_r[:, :1, :], logits_r[:, :-1, :]], dim=1

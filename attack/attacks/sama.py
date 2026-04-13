@@ -14,6 +14,26 @@ from attack.attacks.utils import get_model_nll_params
 # from attack.run import init_model
 from attack.misc.models import ModelManager
 
+from transformers.modeling_outputs import CausalLMOutput
+
+
+class DummyModel(torch.nn.Module):
+
+    def __init__(self, vocab_size):
+        super().__init__()
+        self.vocab_size = vocab_size
+        self.dummy_param = torch.nn.Parameter(torch.zeros(1))
+
+    @property
+    def device(self):
+        return self.dummy_param.device
+
+    def forward(self, input_ids, attention_mask=None, **kwargs):
+        dummy_logits = torch.zeros(
+            input_ids.shape[0], input_ids.shape[1], self.vocab_size
+        ).to(input_ids.device)
+        return CausalLMOutput(logits=dummy_logits)
+
 
 class SamaAttack(AbstractAttack):
     """
@@ -92,19 +112,26 @@ class SamaAttack(AbstractAttack):
             )
 
         # Load reference (diffusion LM) used for comparison
-        self.ref_device = torch.device(config.get("reference_device", "cuda"))
-        ref_model_path = config.get('reference_model_path')
-        if not ref_model_path:
-            raise ValueError("reference_model_path must be specified")
 
         hf_token = config.get('hf_token') or os.environ.get('HF_TOKEN')
         if hf_token:
             login(token=hf_token)
 
-        self.ref_model, self.ref_tokenizer, _ = ModelManager.init_model(
-            ref_model_path, ref_model_path, self.ref_device
-        )
-        self.ref_mask_id, self.ref_shift_logits = get_model_nll_params(self.ref_model)
+        ref_model_path = config.get("reference_model_path")
+        # if not ref_model_path:
+        #     raise ValueError("DF-MIA requires 'reference_model_path' in the config.")
+        self.ref_device = torch.device(config.get("reference_device", str(device)))
+        if ref_model_path:
+            self.ref_model, self.ref_tokenizer, _ = ModelManager.init_model(
+                ref_model_path, ref_model_path, self.ref_device
+            )
+            self.ref_mask_id, self.ref_shift_logits = get_model_nll_params(
+                self.ref_model
+            )
+        else:
+            self.ref_model = DummyModel(tokenizer.vocab_size).to(self.ref_device)
+            self.ref_tokenizer = self.tokenizer
+            self.ref_mask_id, self.ref_shift_logits = get_model_nll_params(self.model)
 
         # Seed for reproducible masking
         torch.manual_seed(self.seed)

@@ -19,7 +19,7 @@ for exp_name in \
 # for exp_name in LLaDA-8B-Base-pretrained-mimir-arxiv-4_12_1.0e-5_10_512 ; do
 # for exp_ratio in 1 0.5 2; do
 
-for config_name in config_mtc5depend4 config_mtc5 config_all; do
+for config_name in config_mtc ; do
 
 # for div_type in r t m n; do
 

@@ -54,7 +54,9 @@ class DatasetProcessor:
         )
 
         # Process dataset with NLL computation
-        dataset = self._compute_nll(dataset, mask_id, shift_logits)
+        dataset = self._compute_nll(
+            dataset, mask_id, shift_logits, cache_name=ds_info.get("cache_name", None)
+        )
         logging.info(f"Finished processing dataset for NLL")
 
         return dataset
@@ -85,12 +87,19 @@ class DatasetProcessor:
             raise ValueError("Dataset configuration is missing required keys")
 
     def _compute_nll(
-        self, dataset: Dataset, mask_id: int, shift_logits: bool
+        self,
+        dataset: Dataset,
+        mask_id: int,
+        shift_logits: bool,
+        cache_name: Optional[str] = None,
     ) -> Dataset:
         """Compute NLL for the dataset."""
 
+        cache_name = cache_name or "dataset"
+        cache_name = f"{cache_name}.pt"
+
         cache_dataset_file = (
-            os.path.join(self.cache_dir, f"dataset.pt") if self.cache_dir else None
+            os.path.join(self.cache_dir, cache_name) if self.cache_dir else None
         )
 
         if cache_dataset_file and os.path.exists(cache_dataset_file):

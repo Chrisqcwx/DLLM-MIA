@@ -1,0 +1,76 @@
+global:
+  load_from_base_dir: true
+  target_model: "./"
+  tokenizer: "./"
+  datasets:
+    - json_train_path: "./train_subset.json"
+      json_test_path: "./test_subset.json"
+  batch_size: 1
+  seed: 42
+  device: "cuda"  # This will use all available GPUs
+  fpr_thresholds:
+    - 0.1
+    - 0.01
+    - 0.001
+  n_bootstrap_samples: 10
+  test_samples: null  # Adjust this number as needed
+  max_length: 512
+  cache_dir: null
+
+
+
+
+Mtc5dependtarget-4-1.5-layer-0-1-refmodel-none:
+  module: "mtc5dependtarget"
+  lambda_penalty: 1.5
+  weight_start_layer_ratio: 0
+  weight_end_layer_ratio: 1
+  steps: 4
+  subset_size: 8          # l for each local subset vote
+  num_subsets: 128        # number of subsets per step
+  l_schedule: "linear"    # or "geometric"
+  min_mask_frac: 0.05     # ~5% of valid tokens masked at early steps
+  max_mask_frac: 0.50     # up to ~50% by the last step
+  batch_size: 8
+  max_length: 512
+  reference_model_path: null
+  reference_device: "cuda"
+  seed: 42
+  save_metadata: false
+  metadata_dir: ""  # Set via SAMA_METADATA_DIR env variable, or specify a path here
+
+Sama-refmodel-none:
+  module: "sama"
+  steps: 4
+  subset_size: 8          # l for each local subset vote
+  num_subsets: 128        # number of subsets per step
+  l_schedule: "linear"    # or "geometric"
+  min_mask_frac: 0.05     # ~5% of valid tokens masked at early steps
+  max_mask_frac: 0.50     # up to ~50% by the last step
+  batch_size: 8
+  max_length: 512
+  reference_model_path: null
+  reference_device: "cuda"
+  seed: 42
+  save_metadata: true
+  metadata_dir: ""  # Set via SAMA_METADATA_DIR env variable, or specify a path here
+
+Baselineorigin2dfmia-r50-cal256-refmodel-none:
+  module: "baselineorigin2dfmia"
+  reference_model_path: null
+  reference_device: "cuda"
+  stage1_score_column: "nlloss"
+  pseudo_nonmember_ratio: 0.5
+  min_pseudo_nonmembers: 64
+  max_pseudo_nonmembers: 512
+  calibration_samples: 256
+  num_perturbations: 1
+  perturbation_ratio: 0.15
+  score_stat: "median_mad"
+  dllm_mc_num: 8
+  dllm_mask_ratio: 0.5
+  batch_size: 2
+  max_length: 512
+  seed: 42
+  save_metadata: true
+  metadata_dir: "./attack_results/debug_dfmia"

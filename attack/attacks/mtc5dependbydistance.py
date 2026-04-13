@@ -20,25 +20,6 @@ import torch
 
 
 import torch
-from transformers.modeling_outputs import CausalLMOutput
-
-
-class DummyModel(torch.nn.Module):
-
-    def __init__(self, vocab_size):
-        super().__init__()
-        self.vocab_size = vocab_size
-        self.dummy_param = torch.nn.Parameter(torch.zeros(1))
-
-    @property
-    def device(self):
-        return self.dummy_param.device
-
-    def forward(self, input_ids, attention_mask=None, **kwargs):
-        dummy_logits = torch.zeros(
-            input_ids.shape[0], input_ids.shape[1], self.vocab_size
-        ).to(input_ids.device)
-        return CausalLMOutput(logits=dummy_logits)
 
 
 def sample_engine(attn_weights, n_samples, k_list, alpha=1.0, lambda_penalty=2.0):
@@ -96,8 +77,29 @@ def sample_engine(attn_weights, n_samples, k_list, alpha=1.0, lambda_penalty=2.0
     return all_results
 
 
+from transformers.modeling_outputs import CausalLMOutput
+
+
+class DummyModel(torch.nn.Module):
+
+    def __init__(self, vocab_size):
+        super().__init__()
+        self.vocab_size = vocab_size
+        self.dummy_param = torch.nn.Parameter(torch.zeros(1))
+
+    @property
+    def device(self):
+        return self.dummy_param.device
+
+    def forward(self, input_ids, attention_mask=None, **kwargs):
+        dummy_logits = torch.zeros(
+            input_ids.shape[0], input_ids.shape[1], self.vocab_size
+        ).to(input_ids.device)
+        return CausalLMOutput(logits=dummy_logits)
+
+
 # MTC2 + mask for token weight
-class Mtc5dependtargetAttack(AbstractAttack):
+class Mtc5dependbydistanceAttack(AbstractAttack):
     """
     SAMA (Subset-Aggregated Membership Attack) for diffusion language models.
 
@@ -248,36 +250,19 @@ class Mtc5dependtargetAttack(AbstractAttack):
         B, L = input_ids_ref.shape
         real_L = attention_mask_ref.sum(dim=1)
         all_attns = []
+
+        # use_
         with torch.no_grad():
-            out = self.model(
-                input_ids=input_ids_ref,
-                attention_mask=(
-                    attention_mask_ref if not self.ref_shift_logits else None
-                ),
-                output_attentions=True,
-            )
-            logits = out.logits if hasattr(out, 'logits') else out[0]
-            attentions = out.attentions
-            assert (
-                attentions is not None
-            ), "Reference model must output attentions for token weighting"
             for b in range(B):
-                b_attns = []
-                num_layers = len(attentions)
-                start_layer = int(self.weight_start_layer_ratio * num_layers)
-                end_layer = int(self.weight_end_layer_ratio * num_layers)
-                if end_layer <= start_layer:
-                    end_layer = start_layer + 1
-                for layer_weight in attentions[start_layer:end_layer]:
-                    # layer_weight: (B, num_heads, L, L)
-                    # 取该样本的有效部分，平均头部和层数
-                    valid_attn = layer_weight[
-                        b, :, : real_L[b], : real_L[b]
-                    ]  # (num_heads, Lb, Lb)
-                    b_attns.append(valid_attn.mean(dim=0))  # (Lb, Lb)
-                all_attns.append(
-                    torch.stack(b_attns, dim=0).mean(dim=0).cpu()
-                )  # (Lb, Lb)
+                distance_matrix = (
+                    1
+                    - torch.abs(
+                        torch.arange(real_L[b]).unsqueeze(0)
+                        - torch.arange(real_L[b]).unsqueeze(1)
+                    ).float()
+                    / real_L[b].cpu()
+                )  # (L, L)
+                all_attns.append(distance_matrix)  # (Lb, Lb)
             # attentions = torch.stack([a.mean(dim=1) for a in attentions], dim=0).mean(
             #     dim=0
             # )  # (num_layers, B, num_heads, L, L) -> (B, L, L)

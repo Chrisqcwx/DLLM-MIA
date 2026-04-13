@@ -15,6 +15,27 @@ from attack.attacks.utils import get_model_nll_params
 from attack.misc.models import ModelManager
 
 
+from transformers.modeling_outputs import CausalLMOutput
+
+
+class DummyModel(torch.nn.Module):
+
+    def __init__(self, vocab_size):
+        super().__init__()
+        self.vocab_size = vocab_size
+        self.dummy_param = torch.nn.Parameter(torch.zeros(1))
+
+    @property
+    def device(self):
+        return self.dummy_param.device
+
+    def forward(self, input_ids, attention_mask=None, **kwargs):
+        dummy_logits = torch.zeros(
+            input_ids.shape[0], input_ids.shape[1], self.vocab_size
+        ).to(input_ids.device)
+        return CausalLMOutput(logits=dummy_logits)
+
+
 class Baselineorigin2dfmiaAttack(AbstractAttack):
     """
     dllm-oriented DF-MIA approximation for fine-tuned language models.
@@ -77,13 +98,20 @@ class Baselineorigin2dfmiaAttack(AbstractAttack):
             login(token=hf_token)
 
         ref_model_path = config.get("reference_model_path")
-        if not ref_model_path:
-            raise ValueError("DF-MIA requires 'reference_model_path' in the config.")
+        # if not ref_model_path:
+        #     raise ValueError("DF-MIA requires 'reference_model_path' in the config.")
         self.ref_device = torch.device(config.get("reference_device", str(device)))
-        self.ref_model, self.ref_tokenizer, _ = ModelManager.init_model(
-            ref_model_path, ref_model_path, self.ref_device
-        )
-        self.ref_mask_id, self.ref_shift_logits = get_model_nll_params(self.ref_model)
+        if ref_model_path:
+            self.ref_model, self.ref_tokenizer, _ = ModelManager.init_model(
+                ref_model_path, ref_model_path, self.ref_device
+            )
+            self.ref_mask_id, self.ref_shift_logits = get_model_nll_params(
+                self.ref_model
+            )
+        else:
+            self.ref_model = DummyModel(tokenizer.vocab_size).to(self.ref_device)
+            self.ref_tokenizer = self.tokenizer
+            self.ref_mask_id, self.ref_shift_logits = get_model_nll_params(self.model)
 
         self.calibration_stats: Dict[str, float] = {}
         self.pseudo_nonmember_indices: List[int] = []
@@ -228,7 +256,7 @@ class Baselineorigin2dfmiaAttack(AbstractAttack):
                 self.ref_tokenizer,
                 text,
             )
-            gap = ref_nll - target_nll
+            gap = -target_nll
             final_score = self._calibrate_gap(gap)
             batch_scores.append(final_score)
 
@@ -279,7 +307,9 @@ class Baselineorigin2dfmiaAttack(AbstractAttack):
 
         valid_positions = torch.arange(len(input_ids), device=model.device)
         num_tokens = int(valid_positions.numel())
-        token_loss_sum = torch.zeros(num_tokens, dtype=torch.float32, device=model.device)
+        token_loss_sum = torch.zeros(
+            num_tokens, dtype=torch.float32, device=model.device
+        )
         token_count = torch.zeros(num_tokens, dtype=torch.float32, device=model.device)
 
         mask_ratio = min(max(self.dllm_mask_ratio, 0.0), 1.0)
@@ -288,7 +318,9 @@ class Baselineorigin2dfmiaAttack(AbstractAttack):
 
         with torch.no_grad():
             for _ in range(self.dllm_mc_num):
-                local_indices = torch.randperm(num_tokens, device=model.device)[:num_to_mask]
+                local_indices = torch.randperm(num_tokens, device=model.device)[
+                    :num_to_mask
+                ]
                 masked_positions = valid_positions[local_indices]
 
                 masked_ids = input_tensor.clone()
@@ -296,7 +328,9 @@ class Baselineorigin2dfmiaAttack(AbstractAttack):
 
                 out = model(
                     input_ids=masked_ids.unsqueeze(0),
-                    attention_mask=(attention_mask.unsqueeze(0) if not shift_logits else None),
+                    attention_mask=(
+                        attention_mask.unsqueeze(0) if not shift_logits else None
+                    ),
                 )
                 logits = out.logits if hasattr(out, "logits") else out[0]
                 if shift_logits:
@@ -333,7 +367,9 @@ class Baselineorigin2dfmiaAttack(AbstractAttack):
             "mc_passes": self.dllm_mc_num,
             "num_masked_per_pass": num_to_mask,
             "avg_nll_mean": float(avg_nll.mean().item()),
-            "avg_nll_std": float(avg_nll.std().item()) if covered_token_count > 1 else 0.0,
+            "avg_nll_std": (
+                float(avg_nll.std().item()) if covered_token_count > 1 else 0.0
+            ),
         }
 
     def _perturb_text(self, text: str) -> str:
@@ -343,7 +379,9 @@ class Baselineorigin2dfmiaAttack(AbstractAttack):
 
         drop_count = int(round(len(token_ids) * self.perturbation_ratio))
         drop_count = min(max(drop_count, 1), len(token_ids) - 1)
-        drop_indices = set(self.rng.choice(len(token_ids), size=drop_count, replace=False).tolist())
+        drop_indices = set(
+            self.rng.choice(len(token_ids), size=drop_count, replace=False).tolist()
+        )
         kept_ids = [tok for idx, tok in enumerate(token_ids) if idx not in drop_indices]
         if not kept_ids:
             kept_ids = token_ids[:1]
