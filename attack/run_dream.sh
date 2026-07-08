@@ -19,7 +19,7 @@ for exp_name in \
 # for exp_name in LLaDA-8B-Base-pretrained-mimir-arxiv-4_12_1.0e-5_10_512 ; do
 # for exp_ratio in 1 0.5 2; do
 
-for config_name in config_mtc ; do
+for config_name in config_mtc5depend4-p0.1 ; do
 
 # for div_type in r t m n; do
 
@@ -34,7 +34,8 @@ else
     echo "Running ${output_dir}"
     sleep 1s
 
-CUDA_VISIBLE_DEVICES=0 SAMA_METADATA_DIR=$output_dir \
+# CUDA_VISIBLE_DEVICES=3 
+SAMA_METADATA_DIR=$output_dir \
     python -m attack.run \
     -c attack/configs_dream/${config_name}.yaml \
     --output ${output_dir} \

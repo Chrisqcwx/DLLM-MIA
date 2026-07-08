@@ -14,6 +14,82 @@ from attack.attacks.utils import get_model_nll_params
 # from attack.run import init_model
 from attack.misc.models import ModelManager
 
+import torch
+
+import torch
+
+
+import torch
+
+
+import torch
+
+
+def sample_engine(
+    attn_weights, n_samples, k_list, alpha=1.0, lambda_penalty=2.0, iterations=50
+):
+    """
+    基于压缩感知凸松弛思想的优化采样引擎 (修正版)
+    """
+    L = attn_weights.shape[0]
+    device = attn_weights.device
+
+    # 1. 对称化处理
+    adj = (attn_weights + attn_weights.t()).float()
+
+    # 2. 对角线清零：我们只关心 Token 间的“互信息”，不关心“自信息”
+    # 这样 w^T A w 就只计算不同 Token 之间的累积 PCMI
+    adj.fill_diagonal_(0)
+
+    # 3. 归一化（可选，有助于学习率稳定）
+    if adj.max() > 0:
+        adj = adj / adj.max()
+
+    global_counts = torch.zeros(L, device=device)
+    all_results = []
+
+    for i in range(n_samples):
+        target_k = k_list[i]
+
+        # 初始化权重：在 target_k/L 附近加入噪声
+        w = torch.full((L,), target_k / L, device=device, requires_grad=True)
+        # 增加随机扰动，防止优化陷入完全对称的局部点
+        # with torch.no_grad():
+        #     w += torch.randn_like(w) * 0.01
+
+        optimizer = torch.optim.Adam([w], lr=0.001)
+
+        for _ in range(iterations):
+            # --- 优化目标 ---
+            # 内部连通性 (Quadratic Form): 衡量采样集合内的独立程度
+            internal_pcmi = torch.dot(w, torch.mv(adj, w))
+
+            # 跨采样多样性 (Linear Penalty): 衡量与历史采样的重叠度
+            cross_diversity = torch.dot(w, global_counts)
+
+            loss = (alpha * internal_pcmi) + (lambda_penalty * cross_diversity)
+
+            optimizer.zero_grad()
+            loss.backward()
+            optimizer.step()
+
+            # --- 投影算子 (Projection) ---
+            with torch.no_grad():
+                w.clamp_(0, 1)
+                current_sum = w.sum()
+                if current_sum > 1e-6:
+                    w.mul_(target_k / current_sum)
+
+        # 4. 离散化输出
+        indices = torch.topk(w, k=target_k).indices
+
+        # 更新全局状态，累积已选中的频次
+        global_counts[indices] += 1.0
+        all_results.append(indices.detach().clone())
+
+    return all_results
+
+
 from transformers.modeling_outputs import CausalLMOutput
 
 
@@ -35,7 +111,8 @@ class DummyModel(torch.nn.Module):
         return CausalLMOutput(logits=dummy_logits)
 
 
-class SamaAttack(AbstractAttack):
+# MTC2 + mask for token weight
+class Mtc5dependoptimAttack(AbstractAttack):
     """
     SAMA (Subset-Aggregated Membership Attack) for diffusion language models.
 
@@ -87,6 +164,13 @@ class SamaAttack(AbstractAttack):
             "l_schedule", "linear"
         )  # "linear" or "geometric"
 
+        self.sample_alpha = float(config.get("sample_alpha", 1.0))
+        self.lambda_penalty = float(config.get("lambda_penalty", 1.0))
+        self.weight_start_layer_ratio = float(
+            config.get("weight_start_layer_ratio", 0.0)
+        )
+        self.weight_end_layer_ratio = float(config.get("weight_end_layer_ratio", 1.0))
+
         # METADATA SAVING
         self.save_metadata = config.get("save_metadata", True)
         self.metadata_dir = config.get("metadata_dir") or os.environ.get(
@@ -113,11 +197,6 @@ class SamaAttack(AbstractAttack):
             )
 
         # Load reference (diffusion LM) used for comparison
-
-        hf_token = config.get('hf_token') or os.environ.get('HF_TOKEN')
-        if hf_token:
-            login(token=hf_token)
-
         ref_model_path = config.get("reference_model_path")
         # if not ref_model_path:
         #     raise ValueError("DF-MIA requires 'reference_model_path' in the config.")
@@ -134,7 +213,17 @@ class SamaAttack(AbstractAttack):
             self.ref_tokenizer = self.tokenizer
             self.ref_mask_id, self.ref_shift_logits = get_model_nll_params(self.model)
 
+        # hf_token = config.get('hf_token') or os.environ.get('HF_TOKEN')
+        # if hf_token:
+        #     login(token=hf_token)
+
+        # self.ref_model, self.ref_tokenizer, _ = ModelManager.init_model(
+        #     ref_model_path, ref_model_path, self.ref_device
+        # )
+        # self.ref_mask_id, self.ref_shift_logits = get_model_nll_params(self.ref_model)
+
         # Seed for reproducible masking
+        self.rng2 = torch.Generator().manual_seed(self.seed)
         torch.manual_seed(self.seed)
 
     # ------------------------------ Public API ------------------------------
@@ -166,6 +255,69 @@ class SamaAttack(AbstractAttack):
         return dataset
 
     # --------------------------- Internals -----------------------------
+    def _compute_weights(self, input_ids_ref, attention_mask_ref):
+        """
+        用 reference 模型在原始（未 mask）输入上的 token-level loss 作为位置权重。
+        高 loss 位置 → 高信息量 → 优先 mask。
+        """
+        B, L = input_ids_ref.shape
+        real_L = attention_mask_ref.sum(dim=1)
+        all_attns = []
+
+        # use_
+        with torch.no_grad():
+            out = self.ref_model(
+                input_ids=input_ids_ref,
+                attention_mask=(
+                    attention_mask_ref if not self.ref_shift_logits else None
+                ),
+                output_attentions=True,
+            )
+            logits = out.logits if hasattr(out, 'logits') else out[0]
+            attentions = out.attentions
+            assert (
+                attentions is not None
+            ), "Reference model must output attentions for token weighting"
+            for b in range(B):
+                b_attns = []
+                num_layers = len(attentions)
+                start_layer = int(self.weight_start_layer_ratio * num_layers)
+                end_layer = int(self.weight_end_layer_ratio * num_layers)
+                if end_layer <= start_layer:
+                    end_layer = start_layer + 1
+                for layer_weight in attentions[start_layer:end_layer]:
+                    # layer_weight: (B, num_heads, L, L)
+                    # 取该样本的有效部分，平均头部和层数
+                    valid_attn = layer_weight[
+                        b, :, : real_L[b], : real_L[b]
+                    ]  # (num_heads, Lb, Lb)
+                    b_attns.append(valid_attn.mean(dim=0))  # (Lb, Lb)
+                all_attns.append(
+                    torch.stack(b_attns, dim=0).mean(dim=0).cpu()
+                )  # (Lb, Lb)
+            # attentions = torch.stack([a.mean(dim=1) for a in attentions], dim=0).mean(
+            #     dim=0
+            # )  # (num_layers, B, num_heads, L, L) -> (B, L, L)
+        return all_attns
+        #     if self.ref_shift_logits:
+        #         logits = torch.cat([logits[:, :1, :], logits[:, :-1, :]], dim=1)
+
+        #     ce = (
+        #         F.cross_entropy(
+        #             logits.view(-1, logits.size(-1)),
+        #             input_ids_ref.view(-1),
+        #             reduction='none',
+        #         )
+        #         .view(B, L)
+        #         .float()
+        #     )  # (B, L)
+
+        # # padding 位置权重置 0，剩余位置用 softmax 归一化
+        # ce = ce * attention_mask_ref.float().to(self.ref_device)
+        # # 避免全零行
+        # ce = ce + 1e-8
+        # weights = ce / ce.sum(dim=1, keepdim=True)  # (B, L), 归一化为概率
+        # return weights  # 返回 CPU 上的权重供后续采样
 
     def _compute_batch_scores(self, texts, batch_start_idx):
         B = len(texts)
@@ -197,15 +349,17 @@ class SamaAttack(AbstractAttack):
         )
 
         # Cumulative mask across steps (v8 uses fixed-l cardinality per step)
-        cumulative_mask = torch.zeros_like(
-            input_ids, dtype=torch.bool
-        )  # on target device
 
         # Per-sample step scores
         step_scores = [[] for _ in range(B)]
 
         # Precompute valid lengths per sample
         valid_lengths = attention_mask.sum(dim=1)  # (B,)
+
+        weight_matrixs = self._compute_weights(
+            input_ids_ref, attention_mask_ref
+        )  # (B, L)
+        all_samples = []
 
         # Initialize metadata for each sample
         for b in range(B):
@@ -218,12 +372,10 @@ class SamaAttack(AbstractAttack):
                 }
             )
 
-        for step in range(self.num_steps):
-            step_metadata = []
+            k_list = []
 
-            # Linear schedule by default: l_s ~ [min_frac * L, max_frac * L] across steps
-            new_mask = torch.zeros_like(cumulative_mask)
-            for b in range(B):
+            for step in range(self.num_steps):
+                # for b in range(B):
                 Lb = int(valid_lengths[b].item())
                 if Lb == 0:
                     continue
@@ -245,31 +397,31 @@ class SamaAttack(AbstractAttack):
 
                 # mask 个数
                 desired_total = max(1, int(round(frac * Lb)))
-                # 占位的个数
-                current_total = int(
-                    (cumulative_mask[b] & attention_mask[b]).sum().item()
-                )
-                to_add = max(0, desired_total - current_total)
-                if to_add == 0:
-                    continue
+                k_list.append(desired_total)
 
-                # Sample new positions uniformly without replacement among currently unmasked valid tokens
-                unmasked_valid = (~cumulative_mask[b]) & attention_mask[b]
-                candidates = torch.where(unmasked_valid)[0]
-                if candidates.numel() == 0:
-                    continue
-                if to_add > candidates.numel():
-                    to_add = int(candidates.numel())
+            b_samples = sample_engine(
+                weight_matrixs[b],
+                self.num_steps,
+                k_list,
+                alpha=self.sample_alpha,
+                lambda_penalty=self.lambda_penalty,
+            )
+            all_samples.append(b_samples)
 
-                perm = torch.randperm(candidates.numel(), device=self.device)
-                chosen = candidates[perm[:to_add]]
+        for step in range(self.num_steps):
+            step_metadata = []
+
+            new_mask = torch.zeros_like(input_ids, dtype=torch.bool)  # on target device
+            for b in range(B):
+                chosen = all_samples[b][step].to(new_mask.device)
                 new_mask[b, chosen] = True
 
             if not new_mask.any():
                 # Nothing to add this step
                 continue
 
-            cumulative_mask = cumulative_mask | new_mask
+            cumulative_mask = new_mask
+
             cumulative_mask_ref = cumulative_mask.to(self.ref_device)
 
             # ---- Target model: compute CE over current masked context; store for *newly* masked positions
@@ -284,10 +436,9 @@ class SamaAttack(AbstractAttack):
                     ),
                 )
                 logits = out.logits if hasattr(out, 'logits') else out[0]
+                logits = logits / self.temperature
                 if self.target_shift_logits:
                     logits = torch.cat([logits[:, :1, :], logits[:, :-1, :]], dim=1)
-
-                logits = logits / self.temperature
 
                 ce = (
                     F.cross_entropy(
@@ -313,12 +464,11 @@ class SamaAttack(AbstractAttack):
                     ),
                 )
                 logits_r = out_r.logits if hasattr(out_r, 'logits') else out_r[0]
+                logits_r = logits_r / self.temperature
                 if self.ref_shift_logits:
                     logits_r = torch.cat(
                         [logits_r[:, :1, :], logits_r[:, :-1, :]], dim=1
                     )
-
-                logits_r = logits_r / self.temperature
 
                 ce_r = (
                     F.cross_entropy(
@@ -334,7 +484,7 @@ class SamaAttack(AbstractAttack):
                 cumulative_ref_losses[new_mask_ref] = ce_r[new_mask_ref]
 
             for b in range(B):
-                masked_positions = torch.where(cumulative_mask[b])[0]
+                masked_positions = torch.where(new_mask[b])[0]
                 m = int(masked_positions.numel())
                 if m == 0:
                     continue
@@ -378,15 +528,16 @@ class SamaAttack(AbstractAttack):
             if len(step_scores[b]) == 0:
                 batch_scores.append(0.0)
             else:
-                weights = 1.0 / (np.arange(len(step_scores[b])) + 1)
-                weights = weights / weights.sum()
-                final_score = float(np.average(step_scores[b], weights=weights))
+                # weights = 1.0 / (np.arange(len(step_scores[b])) + 1)
+                # weights = weights / weights.sum()
+                # final_score = float(np.average(step_scores[b], weights=weights))
+                final_score = float(np.mean(step_scores[b]))
                 batch_scores.append(final_score)
 
                 if self.save_metadata:
                     batch_metadata[b]["final_score"] = final_score
                     batch_metadata[b]["step_scores"] = step_scores[b]
-                    batch_metadata[b]["weights"] = weights.tolist()
+                    # batch_metadata[b]["weights"] = weights.tolist()
 
         # Add to global metadata buffer
         if self.save_metadata:

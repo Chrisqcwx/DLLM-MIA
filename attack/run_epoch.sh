@@ -11,7 +11,7 @@ for exp_name in LLaDA-8B-Base-pretrained-mimir-arxiv-4_12_1.0e-5_10_512 \
     ; do
 
 # for epoch in 10 20 31 41 52 62 72 83 93 100; do
-for config_name in config_mtc5depend4bydistance5  ; do
+for config_name in config_mtc5depend4-p0.1-least1  ; do
 # config_mtc5depend4bydistance
 # for config_name in config_mtc5depend4penaltyhuge ; do
 for epoch in 20 41 62 83 104 125 145 166 187 200; do
@@ -38,7 +38,7 @@ else
     echo "Running ${output_dir}"
     sleep 1s
 mkdir -p ${output_dir}
-CUDA_VISIBLE_DEVICES=3 \
+CUDA_VISIBLE_DEVICES=7 \
 SAMA_METADATA_DIR=$output_dir \
     python -m attack.run \
     -c attack/configs/${config_name}.yaml \

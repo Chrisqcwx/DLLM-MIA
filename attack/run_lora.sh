@@ -24,19 +24,31 @@
 #     LLaDA-8B-Base-pretrained-mimir-arxiv-4_12_1.0e-4_10_512-lora-mlpr8 \
 #     ; do
      
+    # LLaDA-8B-Base-pretrained-mimir-arxiv-4_12_1.0e-4_10_512-lora-mlp1 \
+    # LLaDA-8B-Base-pretrained-mimir-arxiv-4_12_1.0e-4_10_512-lora-mlp2 \
+    # LLaDA-8B-Base-pretrained-mimir-arxiv-4_12_1.0e-4_10_512-lora-attn1 \
+    # LLaDA-8B-Base-pretrained-mimir-arxiv-4_12_1.0e-4_10_512-lora-attn2 \
+    # LLaDA-8B-Base-pretrained-mimir-arxiv-4_12_1.0e-4_10_512-lora-mlp3 \
+    # LLaDA-8B-Base-pretrained-mimir-arxiv-4_12_1.0e-4_10_512-lora-mlp4 \
+    # LLaDA-8B-Base-pretrained-mimir-arxiv-4_12_1.0e-4_10_512-lora-attn3 \
+    # LLaDA-8B-Base-pretrained-mimir-arxiv-4_12_1.0e-4_10_512-lora-attn4 \
 for exp_name in  \
-    LLaDA-8B-Base-pretrained-mimir-arxiv-4_12_1.0e-4_10_512-lora-mlp1 \
-    LLaDA-8B-Base-pretrained-mimir-arxiv-4_12_1.0e-4_10_512-lora-mlp2 \
-    LLaDA-8B-Base-pretrained-mimir-arxiv-4_12_1.0e-4_10_512-lora-attn1 \
-    LLaDA-8B-Base-pretrained-mimir-arxiv-4_12_1.0e-4_10_512-lora-attn2 \
-    LLaDA-8B-Base-pretrained-mimir-arxiv-4_12_1.0e-4_10_512-lora-mlp3 \
-    LLaDA-8B-Base-pretrained-mimir-arxiv-4_12_1.0e-4_10_512-lora-mlp4 \
-    LLaDA-8B-Base-pretrained-mimir-arxiv-4_12_1.0e-4_10_512-lora-attn3 \
-    LLaDA-8B-Base-pretrained-mimir-arxiv-4_12_1.0e-4_10_512-lora-attn4 \
+    LLaDA-8B-Base-pretrained-mimir-arxiv-4_12_1.0e-4_10_512-lora-attnr1 \
+    LLaDA-8B-Base-pretrained-mimir-arxiv-4_12_1.0e-4_10_512-lora-attnr2 \
+    LLaDA-8B-Base-pretrained-mimir-arxiv-4_12_1.0e-4_10_512-lora-attnr4 \
+    LLaDA-8B-Base-pretrained-mimir-arxiv-4_12_1.0e-4_10_512-lora-attnr8 \
+    LLaDA-8B-Base-pretrained-mimir-arxiv-4_12_1.0e-4_10_512-lora-attnr16 \
+    LLaDA-8B-Base-pretrained-mimir-arxiv-4_12_1.0e-4_10_512-lora-attnr32 \
+    LLaDA-8B-Base-pretrained-mimir-arxiv-4_12_1.0e-4_10_512-lora-attnr64 \
+    LLaDA-8B-Base-pretrained-mimir-arxiv-4_12_1.0e-4_10_512-lora-attnr128 \
     LLaDA-8B-Base-pretrained-mimir-arxiv-4_12_1.0e-4_10_512-lora-mlpr1 \
     LLaDA-8B-Base-pretrained-mimir-arxiv-4_12_1.0e-4_10_512-lora-mlpr2 \
     LLaDA-8B-Base-pretrained-mimir-arxiv-4_12_1.0e-4_10_512-lora-mlpr4 \
     LLaDA-8B-Base-pretrained-mimir-arxiv-4_12_1.0e-4_10_512-lora-mlpr8 \
+    LLaDA-8B-Base-pretrained-mimir-arxiv-4_12_1.0e-4_10_512-lora-mlpr16 \
+    LLaDA-8B-Base-pretrained-mimir-arxiv-4_12_1.0e-4_10_512-lora-mlpr32 \
+    LLaDA-8B-Base-pretrained-mimir-arxiv-4_12_1.0e-4_10_512-lora-mlpr64 \
+    LLaDA-8B-Base-pretrained-mimir-arxiv-4_12_1.0e-4_10_512-lora-mlpr128 \
      ; do
 
 # LLaDA-8B-Base-pretrained-mimir-arxiv-4_12_1.0e-5_10_512-lora
@@ -44,21 +56,25 @@ for exp_name in  \
 # for exp_ratio in 1 0.5 2; do
 
 # for config_name in config_mtc5depend4bydistance5 config_mtc5depend4 config_mtc5 config_all   ; do
-for config_name in config_mtc; do
+# for config_name in config_samastep config_mtc ; do
+for config_name in config_mtc5depend4-p0.1-least1; do
 # for div_type in r t m n; do
-
+# config_mtc5depend4step3
 output_dir=./attack_results/${exp_name}/${config_name}
 
 # 如果output_dir下面有json文件则跳过，否则执行攻击
 if ls ${output_dir}/*.json 1> /dev/null 2>&1;
 then
     echo "Skip ${output_dir}"
-    sleep 1s
+    # sleep 1s
 else
     echo "Running ${output_dir}"
     
+export TRANSFORMERS_OFFLINE=1
+export HF_HUB_OFFLINE=1
 mkdir -p ${output_dir}
-CUDA_VISIBLE_DEVICES=0 SAMA_METADATA_DIR=$output_dir \
+# CUDA_VISIBLE_DEVICES=0 \
+SAMA_METADATA_DIR=$output_dir \
     python -m attack.run \
     -c attack/configs/${config_name}.yaml \
     --output ${output_dir} \
@@ -72,7 +88,7 @@ done
 done
 # for exp_name in LLaDA-8B-Base-pretrained-mimir-github-4_12_1.0e-5_10_512 ; do
 
-# for config_name in config_samamultirun ; do
+# for config_name in config_samamultirun pp; do
 
 # for run_times in 2 3 4; do
 

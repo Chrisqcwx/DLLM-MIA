@@ -16,14 +16,19 @@ exp_name=LLaDA-8B-Base-pretrained-mimir-github-4_12_1.0e-5_10_512
     # LLaDA-8B-Base-pretrained-mimir-pile_cc-4_12_1.0e-5_4_512 \
     # LLaDA-8B-Base-pretrained-mimir-pubmed_central-4_12_1.0e-5_4_512 \
     # "LLaDA-8B-Base-pretrained-mimir-wikipedia_(en)-4_12_1.0e-5_4_512" \
-for config_name in config_mtc5depend4temperature ; do
+for config_name in config_mtc5depend4neg3-p0.1-least1  \
+    config_mtc5depend4cut1-p0.1-least1 \
+    config_mtc5depend4cut2-p0.1-least1 \
+    config_mtc5depend4cut3-p0.1-least1 \
+    config_mtc5depend4cut4-p0.1-least1 \
+    config_mtc5depend4step3-p0.1-least1 \
+    ; do
 # for exp_name in \
 #     LLaDA-8B-Base-pretrained-mimir-arxiv-4_12_1.0e-5_4_512 \
 #     ; do
 
 for exp_name in \
     LLaDA-8B-Base-pretrained-mimir-arxiv-4_12_1.0e-5_4_512 \
-    LLaDA-8B-Base-pretrained-ag_news-4_12_1.0e-5_4_512 \
     ; do
 # for exp_name in \
 #     LLaDA-8B-Base-pretrained-mimir-github-4_12_1.0e-5_4_512 \
@@ -48,18 +53,18 @@ output_dir=./attack_results/${exp_name}/${config_name}
 if ls ${output_dir}/*.json 1> /dev/null 2>&1;
 then
     echo "Skip ${output_dir}"
-    sleep 1s
+    # sleep 1s
 else
     echo "Running ${output_dir}"
-    sleep 1s
+    # sleep 1s
 
 
 export TRANSFORMERS_OFFLINE=1
 export HF_HUB_OFFLINE=1
 
 mkdir -p ${output_dir}
-CUDA_VISIBLE_DEVICES=7  \
-    SAMA_METADATA_DIR=$output_dir \
+# CUDA_VISIBLE_DEVICES=0  \
+SAMA_METADATA_DIR=$output_dir \
     python -m attack.run \
     -c attack/configs/${config_name}.yaml \
     --output ${output_dir} \

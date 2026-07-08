@@ -19,11 +19,12 @@ global:
 
 
 
-Mtc5depend-4-5-layer-0-1:
+Mtc5depend-4-1.5-layer-0-1-random:
   module: "mtc5depend"
-  lambda_penalty: 5
+  lambda_penalty: 1.5
   weight_start_layer_ratio: 0
   weight_end_layer_ratio: 1
+  sample_alpha: 0
   steps: 4
   subset_size: 8          # l for each local subset vote
   num_subsets: 128        # number of subsets per step
@@ -38,30 +39,12 @@ Mtc5depend-4-5-layer-0-1:
   save_metadata: false
   metadata_dir: ""  # Set via SAMA_METADATA_DIR env variable, or specify a path here
 
-# Mtc5dependtarget-4-5-layer-0-1:
-#   module: "mtc5dependtarget"
-#   lambda_penalty: 5
-#   weight_start_layer_ratio: 0
-#   weight_end_layer_ratio: 1
-#   steps: 4
-#   subset_size: 8          # l for each local subset vote
-#   num_subsets: 128        # number of subsets per step
-#   l_schedule: "linear"    # or "geometric"
-#   min_mask_frac: 0.05     # ~5% of valid tokens masked at early steps
-#   max_mask_frac: 0.50     # up to ~50% by the last step
-#   batch_size: 8
-#   max_length: 512
-#   reference_model_path: "GSAI-ML/LLaDA-8B-Base"
-#   reference_device: "cuda"
-#   seed: 42
-#   save_metadata: false
-#   metadata_dir: ""  # Set via SAMA_METADATA_DIR env variable, or specify a path here
-
-Mtc5depend-4-10-layer-0-1:
+Mtc5depend-4-1.5-layer-0-1-highrelevant:
   module: "mtc5depend"
-  lambda_penalty: 10
+  lambda_penalty: 1.5
   weight_start_layer_ratio: 0
   weight_end_layer_ratio: 1
+  sample_alpha: -1
   steps: 4
   subset_size: 8          # l for each local subset vote
   num_subsets: 128        # number of subsets per step
@@ -76,47 +59,9 @@ Mtc5depend-4-10-layer-0-1:
   save_metadata: false
   metadata_dir: ""  # Set via SAMA_METADATA_DIR env variable, or specify a path here
 
-# Mtc5dependtarget-4-10-layer-0-1:
+# Mtc5dependtarget-4-1.5-layer-0-1:
 #   module: "mtc5dependtarget"
-#   lambda_penalty: 10
-#   weight_start_layer_ratio: 0
-#   weight_end_layer_ratio: 1
-#   steps: 4
-#   subset_size: 8          # l for each local subset vote
-#   num_subsets: 128        # number of subsets per step
-#   l_schedule: "linear"    # or "geometric"
-#   min_mask_frac: 0.05     # ~5% of valid tokens masked at early steps
-#   max_mask_frac: 0.50     # up to ~50% by the last step
-#   batch_size: 8
-#   max_length: 512
-#   reference_model_path: "GSAI-ML/LLaDA-8B-Base"
-#   reference_device: "cuda"
-#   seed: 42
-#   save_metadata: false
-#   metadata_dir: ""  # Set via SAMA_METADATA_DIR env variable, or specify a path here
-
-Mtc5depend-4-100-layer-0-1:
-  module: "mtc5depend"
-  lambda_penalty: 100
-  weight_start_layer_ratio: 0
-  weight_end_layer_ratio: 1
-  steps: 4
-  subset_size: 8          # l for each local subset vote
-  num_subsets: 128        # number of subsets per step
-  l_schedule: "linear"    # or "geometric"
-  min_mask_frac: 0.05     # ~5% of valid tokens masked at early steps
-  max_mask_frac: 0.50     # up to ~50% by the last step
-  batch_size: 8
-  max_length: 512
-  reference_model_path: "GSAI-ML/LLaDA-8B-Base"
-  reference_device: "cuda"
-  seed: 42
-  save_metadata: false
-  metadata_dir: ""  # Set via SAMA_METADATA_DIR env variable, or specify a path here
-
-# Mtc5dependtarget-4-100-layer-0-1:
-#   module: "mtc5dependtarget"
-#   lambda_penalty: 100
+#   lambda_penalty: 1.5
 #   weight_start_layer_ratio: 0
 #   weight_end_layer_ratio: 1
 #   steps: 4

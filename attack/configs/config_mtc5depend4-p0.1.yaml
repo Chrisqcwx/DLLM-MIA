@@ -18,23 +18,12 @@ global:
   cache_dir: null
 
 
-loss:
- module: loss
- mc_num: 4
 
-loss-calibration:
-  module: "ratio"
-  reference_model_path: "GSAI-ML/LLaDA-8B-Base"
-  reference_device: "cuda"
-
-zlib:
- module: zlib
-
-# lowercase:
-#  module: lowercase
-
-Sama:
-  module: "sama"
+Mtc5depend-4-0.1-layer-0-1:
+  module: "mtc5depend"
+  lambda_penalty: 0.1
+  weight_start_layer_ratio: 0
+  weight_end_layer_ratio: 1
   steps: 4
   subset_size: 8          # l for each local subset vote
   num_subsets: 128        # number of subsets per step
@@ -46,12 +35,14 @@ Sama:
   reference_model_path: "GSAI-ML/LLaDA-8B-Base"
   reference_device: "cuda"
   seed: 42
-  save_metadata: true
+  save_metadata: false
   metadata_dir: ""  # Set via SAMA_METADATA_DIR env variable, or specify a path here
 
-
-# My:
-#   module: "my"
+# Mtc5dependtarget-4-0.1-layer-0-1:
+#   module: "mtc5dependtarget"
+#   lambda_penalty: 0.1
+#   weight_start_layer_ratio: 0
+#   weight_end_layer_ratio: 1
 #   steps: 4
 #   subset_size: 8          # l for each local subset vote
 #   num_subsets: 128        # number of subsets per step
@@ -63,5 +54,5 @@ Sama:
 #   reference_model_path: "GSAI-ML/LLaDA-8B-Base"
 #   reference_device: "cuda"
 #   seed: 42
-#   save_metadata: true
+#   save_metadata: false
 #   metadata_dir: ""  # Set via SAMA_METADATA_DIR env variable, or specify a path here

@@ -17,8 +17,8 @@ global:
   max_length: 512
   cache_dir: null
 
-Sama-1:
-  module: "sama"
+Mtc5depend-1-1.5-layer-0-1:
+  module: "mtc5depend"
   lambda_penalty: 1.5
   weight_start_layer_ratio: 0
   weight_end_layer_ratio: 1
@@ -36,8 +36,8 @@ Sama-1:
   save_metadata: false
   metadata_dir: ""  # Set via SAMA_METADATA_DIR env variable, or specify a path here
 
-Sama-2:
-  module: "sama"
+Mtc5depend-2-1.5-layer-0-1:
+  module: "mtc5depend"
   lambda_penalty: 1.5
   weight_start_layer_ratio: 0
   weight_end_layer_ratio: 1
@@ -55,9 +55,8 @@ Sama-2:
   save_metadata: false
   metadata_dir: ""  # Set via SAMA_METADATA_DIR env variable, or specify a path here
 
-
-Sama-4:
-  module: "sama"
+Mtc5depend-4-1.5-layer-0-1:
+  module: "mtc5depend"
   lambda_penalty: 1.5
   weight_start_layer_ratio: 0
   weight_end_layer_ratio: 1
@@ -75,8 +74,8 @@ Sama-4:
   save_metadata: false
   metadata_dir: ""  # Set via SAMA_METADATA_DIR env variable, or specify a path here
 
-Sama-8:
-  module: "sama"
+Mtc5depend-8-1.5-layer-0-1:
+  module: "mtc5depend"
   lambda_penalty: 1.5
   weight_start_layer_ratio: 0
   weight_end_layer_ratio: 1
@@ -94,10 +93,8 @@ Sama-8:
   save_metadata: false
   metadata_dir: ""  # Set via SAMA_METADATA_DIR env variable, or specify a path here
 
-
-
-Sama-12:
-  module: "sama"
+Mtc5depend-12-1.5-layer-0-1:
+  module: "mtc5depend"
   lambda_penalty: 1.5
   weight_start_layer_ratio: 0
   weight_end_layer_ratio: 1
@@ -115,8 +112,8 @@ Sama-12:
   save_metadata: false
   metadata_dir: ""  # Set via SAMA_METADATA_DIR env variable, or specify a path here
 
-Sama-16:
-  module: "sama"
+Mtc5depend-16-1.5-layer-0-1:
+  module: "mtc5depend"
   lambda_penalty: 1.5
   weight_start_layer_ratio: 0
   weight_end_layer_ratio: 1

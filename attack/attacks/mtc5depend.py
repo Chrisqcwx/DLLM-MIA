@@ -22,7 +22,9 @@ import torch
 import torch
 
 
-def sample_engine(attn_weights, n_samples, k_list, alpha=1.0, lambda_penalty=2.0):
+def sample_engine(
+    attn_weights, n_samples, k_list, alpha=1.0, lambda_penalty=2.0, least_m=3
+):
     """
     attn_weights: (L, L) 注意力矩阵
     n_samples: 采样总次数 N
@@ -62,7 +64,7 @@ def sample_engine(attn_weights, n_samples, k_list, alpha=1.0, lambda_penalty=2.0
             score[selected] = float('inf')
 
             # 为了进一步增加 N 之间的随机性，从得分最低的前 M 个点中随机选一个
-            m_val = min(3, L - len(selected))
+            m_val = min(least_m, L - len(selected))
             candidate_indices = torch.topk(score, k=m_val, largest=False).indices
             next_node = candidate_indices[torch.randint(0, m_val, (1,))].item()
 
@@ -134,6 +136,9 @@ class Mtc5dependAttack(AbstractAttack):
         self.batch_size = int(config.get("batch_size", 8))
         self.max_length = int(config.get("max_length", 512))
         self.temperature = float(config.get("temperature", 1.0))
+        self.least_m = int(
+            config.get("least_m", 3)
+        )  # For sample_engine diversity control
 
         # v6 local-signal params (unchanged)
         self.subset_size = int(
@@ -392,6 +397,7 @@ class Mtc5dependAttack(AbstractAttack):
                 k_list,
                 alpha=self.sample_alpha,
                 lambda_penalty=self.lambda_penalty,
+                least_m=self.least_m,
             )
             all_samples.append(b_samples)
 
