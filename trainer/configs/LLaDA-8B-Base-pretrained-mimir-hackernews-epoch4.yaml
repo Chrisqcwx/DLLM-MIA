@@ -1,15 +1,15 @@
-run_name: LLaDA-8B-Base-pretrained-wikitext-wikitext-103-v1
+run_name: LLaDA-8B-Base-pretrained-mimir-hackernews
 wandb_project: Diff_LLM
 wandb_group: SAMA
 
 dataset:
   train:
     type: local
-    path: ./wikitext_document_level-wikitext-103-v1/train.json
+    path: ./mimir-hackernews/train.json
   # val not provided -> We'll use test for val
   test:
     type: local
-    path: ./wikitext_document_level-wikitext-103-v1/test.json
+    path: ./mimir-hackernews/test.json
 
 tokenizer:
   identifier: GSAI-ML/LLaDA-8B-Base
@@ -20,7 +20,7 @@ model:
   load_pretrained: true
 
 training:
-  output_dir: ./LLaDA-8B-Base-pretrained-wikitext_document_level-wikitext-103-v1-4_12_1.0e-5_4_512
+  output_dir: ./LLaDA-8B-Base-pretrained-mimir-hackernews-4_12_1.0e-5_4_512
   # deepspeed_config: configs/ds_config.json
   batch_size: 4
   gradient_accumulation_steps: 12

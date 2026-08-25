@@ -12,22 +12,24 @@ exp_name=LLaDA-8B-Base-pretrained-mimir-github-4_12_1.0e-5_10_512
 #     LLaDA-8B-Base-pretrained-ag_news-4_12_1.0e-5_10_512 \
 #    LLaDA-8B-Base-pretrained-mimir-pile_cc-4_12_1.0e-5_10_512 \
     # LLaDA-8B-Base-pretrained-ag_news-4_12_1.0e-5_4_512 \
-for config_name in  config_mtc5depend4temperature-p0.1-least1; do
+for config_name in config_all config_mtc5depend4-p0.1-least1; do
 # for exp_name in \
 #     LLaDA-8B-Base-pretrained-mimir-arxiv-4_12_1.0e-5_4_512 \
 #     ; do
 # config_mtc5depend4bydistance
-for exp_name in \
-    LLaDA-8B-Base-pretrained-mimir-arxiv-4_12_1.0e-5_4_512 \
-    LLaDA-8B-Base-pretrained-ag_news-4_12_1.0e-5_4_512 \
-    LLaDA-8B-Base-pretrained-mimir-github-4_12_1.0e-5_4_512 \
-    LLaDA-8B-Base-pretrained-mimir-pile_cc-4_12_1.0e-5_4_512 \
-    LLaDA-8B-Base-pretrained-mimir-pubmed_central-4_12_1.0e-5_4_512 \
-    "LLaDA-8B-Base-pretrained-mimir-wikipedia_(en)-4_12_1.0e-5_4_512" \
-    ; do
 # for exp_name in \
+#     LLaDA-8B-Base-pretrained-mimir-arxiv-4_12_1.0e-5_4_512 \
+#     LLaDA-8B-Base-pretrained-ag_news-4_12_1.0e-5_4_512 \
 #     LLaDA-8B-Base-pretrained-mimir-github-4_12_1.0e-5_4_512 \
+#     LLaDA-8B-Base-pretrained-mimir-pile_cc-4_12_1.0e-5_4_512 \
+#     LLaDA-8B-Base-pretrained-mimir-pubmed_central-4_12_1.0e-5_4_512 \
+    # LLaDA-8B-Base-pretrained-xsum-4_12_1.0e-5_4_512 \
+    # LLaDA-8B-Base-pretrained-mimir-hackernews-4_12_1.0e-5_4_512 \
+#     "LLaDA-8B-Base-pretrained-mimir-wikipedia_(en)-4_12_1.0e-5_4_512" \
 #     ; do
+for exp_name in \
+    LLaDA-8B-Base-pretrained-wikitext_document_level-wikitext-103-v1-4_12_1.0e-5_4_512 \
+    ; do
      
 # for exp_name in  \
 # LLaDA-8B-Base-pretrained-mimir-pubmed_central-4_12_1.0e-5_4_512 \
@@ -57,7 +59,7 @@ else
 
 
 mkdir -p ${output_dir}
-CUDA_VISIBLE_DEVICES=7  \
+# CUDA_VISIBLE_DEVICES=7  \
 SAMA_METADATA_DIR=$output_dir \
     python -m attack.run \
     -c attack/configs/${config_name}.yaml \

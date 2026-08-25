@@ -5,11 +5,11 @@ wandb_group: SAMA
 dataset:
   train:
     type: local
-    path: ./wikitext-wikitext-103-v1/train.json
+    path: ./wikitext_document_level-wikitext-103-v1/train.json
   # val not provided -> We'll use test for val
   test:
     type: local
-    path: ./wikitext-wikitext-103-v1/test.json
+    path: ./wikitext_document_level-wikitext-103-v1/test.json
 
 tokenizer:
   identifier: Dream-org/Dream-v0-Base-7B
@@ -20,7 +20,7 @@ model:
   load_pretrained: true
 
 training:
-  output_dir: ./Dream-v0-Base-7B-pretrained-wikitext-wikitext-103-v1-4_12_1.0e-5_4_512
+  output_dir: ./Dream-v0-Base-7B-pretrained-wikitext_document_level-wikitext-103-v1-4_12_1.0e-5_4_512
   # deepspeed_config: configs/ds_config.json
   batch_size: 4
   gradient_accumulation_steps: 12

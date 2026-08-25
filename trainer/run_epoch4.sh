@@ -26,17 +26,20 @@
   # LLaDA-8B-Base-pretrained-mimir-arxiv-lora-mlpr16-epoch4.yaml \
   # LLaDA-8B-Base-pretrained-mimir-arxiv-lora-mlpr32-epoch4.yaml \
   # LLaDA-8B-Base-pretrained-mimir-arxiv-lora-mlpr64-epoch4.yaml \
+  # "LLaDA-8B-Base-pretrained-wikitext-wikitext-103-v1-epoch4.yaml" \
+  # "LLaDA-8B-Base-pretrained-xsum-epoch4.yaml" \
+  # "LLaDA-8B-Base-pretrained-mimir-hackernews-epoch4.yaml" \
 for config_name in \
-  "LLaDA-8B-Base-pretrained-xsum-epoch4.yaml" \
+"LLaDA-8B-Base-pretrained-wikitext-wikitext-103-v1-epoch4.yaml" \
  ;do
 # "LLaDA-8B-Base-pretrained-mimir-arxiv.yaml" \
 # for config_name in \
 # "LLaDA-8B-Base-pretrained-mimir-arxiv-lora.yaml" ;do
 
 
-CUDA_VISIBLE_DEVICES=0 accelerate launch --config_file ./trainer/accelerate.yaml \
+CUDA_VISIBLE_DEVICES=6,7 accelerate launch --config_file ./trainer/accelerate.yaml \
   --num_machines 1 \
-  --num_processes 1 \
+  --num_processes 2 \
   trainer/run.py \
   --config_path "./trainer/configs/$config_name" \
   --base_path "./outputs" \
