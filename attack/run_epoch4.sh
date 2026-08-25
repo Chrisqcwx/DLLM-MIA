@@ -29,7 +29,7 @@ exp_name=LLaDA-8B-Base-pretrained-mimir-github-4_12_1.0e-5_10_512
     # config_mtc5depend4-p0.1-least1-mismatch-dream \
     # ; do
 for config_name in \
-    config_mtc5depend4-p0.1-least1-maskfrac2 \
+    config_mtc5depend4-p0.1 \
     ; do
 
 for exp_name in \

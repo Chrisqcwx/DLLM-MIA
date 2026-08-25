@@ -1,0 +1,22 @@
+{
+  "symbols": {
+    "attack/configs/config_mtc5depend4-p0.1.yaml": {
+      "ipo_ts": 1787669434129,
+      "edit_count": 1,
+      "last_lines": 39,
+      "last_ts": 1787669434129,
+      "delisted": false,
+      "last_source": "onEdit",
+      "last_content_hash": "50bb514a"
+    },
+    "attack/run_epoch4.sh": {
+      "ipo_ts": 1787669538540,
+      "edit_count": 1,
+      "last_lines": 104,
+      "last_ts": 1787669538540,
+      "delisted": false,
+      "last_source": "onEdit",
+      "last_content_hash": "a1c3642b"
+    }
+  }
+}
