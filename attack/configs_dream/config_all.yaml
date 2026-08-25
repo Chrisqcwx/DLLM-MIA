@@ -13,14 +13,14 @@ global:
     - 0.01
     - 0.001
   n_bootstrap_samples: 10
-  test_samples: null  # Adjust this number as needed
+  test_samples: null
   max_length: 512
   cache_dir: null
 
 
 loss:
- module: loss
- mc_num: 4
+  module: loss
+  mc_num: 4
 
 # loss-calibration:
 #   module: "ratio"
@@ -28,7 +28,7 @@ loss:
 #   reference_device: "cuda"
 
 zlib:
- module: zlib
+  module: zlib
 
 # lowercase:
 #  module: lowercase
@@ -36,15 +36,35 @@ zlib:
 Sama:
   module: "sama"
   steps: 4
-  subset_size: 8          # l for each local subset vote
-  num_subsets: 128        # number of subsets per step
-  l_schedule: "linear"    # or "geometric"
-  min_mask_frac: 0.05     # ~5% of valid tokens masked at early steps
-  max_mask_frac: 0.50     # up to ~50% by the last step
+  subset_size: 8
+  num_subsets: 128
+  l_schedule: "linear"
+  min_mask_frac: 0.05
+  max_mask_frac: 0.50
   batch_size: 8
   max_length: 512
   reference_model_path: "Dream-org/Dream-v0-Base-7B"
   reference_device: "cuda"
   seed: 42
   save_metadata: false
-  metadata_dir: ""  # Set via SAMA_METADATA_DIR env variable, or specify a path here
+  metadata_dir: ""
+
+
+Its:
+  module: "its"
+  steps: 4
+  subset_size: 8
+  num_subsets: 128
+  l_schedule: "linear"
+  min_mask_frac: 0.05
+  max_mask_frac: 0.50
+  lambda_penalty: 0.1
+  weight_start_layer_ratio: 0
+  weight_end_layer_ratio: 1
+  batch_size: 8
+  max_length: 512
+  reference_model_path: "Dream-org/Dream-v0-Base-7B"
+  reference_device: "cuda"
+  seed: 42
+  save_metadata: false
+  metadata_dir: ""

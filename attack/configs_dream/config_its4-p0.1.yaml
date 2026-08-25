@@ -18,23 +18,11 @@ global:
   cache_dir: null
 
 
-loss:
-  module: loss
-  mc_num: 4
-
-loss-calibration:
-  module: "ratio"
-  reference_model_path: "GSAI-ML/LLaDA-8B-Base"
-  reference_device: "cuda"
-
-zlib:
-  module: zlib
-
-# lowercase:
-#  module: lowercase
-
-Sama:
-  module: "sama"
+Its-4-0.1-layer-0-1:
+  module: "its"
+  lambda_penalty: 0.1
+  weight_start_layer_ratio: 0
+  weight_end_layer_ratio: 1
   steps: 4
   subset_size: 8          # l for each local subset vote
   num_subsets: 128        # number of subsets per step
@@ -43,28 +31,8 @@ Sama:
   max_mask_frac: 0.50     # up to ~50% by the last step
   batch_size: 8
   max_length: 512
-  reference_model_path: "GSAI-ML/LLaDA-8B-Base"
-  reference_device: "cuda"
-  seed: 42
-  save_metadata: true
-  metadata_dir: ""  # Set via SAMA_METADATA_DIR env variable, or specify a path here
-
-
-Its:
-  module: "its"
-  steps: 4
-  subset_size: 8
-  num_subsets: 128
-  l_schedule: "linear"
-  min_mask_frac: 0.05
-  max_mask_frac: 0.50
-  lambda_penalty: 0.1
-  weight_start_layer_ratio: 0
-  weight_end_layer_ratio: 1
-  batch_size: 8
-  max_length: 512
-  reference_model_path: "GSAI-ML/LLaDA-8B-Base"
+  reference_model_path: "Dream-org/Dream-v0-Base-7B"
   reference_device: "cuda"
   seed: 42
   save_metadata: false
-  metadata_dir: ""
+  metadata_dir: ""  # Set via SAMA_METADATA_DIR env variable, or specify a path here

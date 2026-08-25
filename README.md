@@ -1,159 +1,231 @@
-# Membership Inference Attacks on Finetuned Diffusion Language Models
+# ITS: Membership Inference Attacks on Fine-tuned Diffusion Language Models
 
-[![arXiv](https://img.shields.io/badge/arXiv-2601.20125-b31b1b.svg)](https://arxiv.org/abs/2601.20125)
+> **Status:** paper title, authors and arXiv ID are placeholders — fill them in
+> before publishing this repository. The method referred to as **ITS** in this
+> repository was developed on top of the SAMA baseline (Chen et al., 2026).
+
 [![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
 
-This repository contains the implementation of SAMA (Subset-Aggregated Membership Attack) and baseline methods for evaluating membership inference vulnerabilities in Diffusion Language Models (DLMs).
+This repository contains the implementation of **ITS** and a set of baseline
+membership-inference attacks for evaluating privacy leakage of fine-tuned
+**Diffusion Language Models** (DLMs) such as [LLaDA](https://huggingface.co/GSAI-ML/LLaDA-8B-Base)
+and [Dream](https://huggingface.co/Dream-org/Dream-v0-Base-7B).
 
 <p align="center">
   <a href="res/pipe.jpg">
-    <img src="res/pipe.jpg" width="70%" alt="Pipeline overview">
+    <img src="res/pipe.jpg" width="70%" alt="ITS pipeline overview">
   </a>
   <br>
-  <em>
-    Overview of SAMA
-  </em>
+  <em>Overview of the ITS pipeline.</em>
 </p>
+
+## What is ITS?
+
+ITS reframes the membership-inference test as an **attention-aware,
+diversity-constrained subset-sampling** problem on top of the SAMA framework.
+Concretely, given a target fine-tuned DLM and a pre-trained reference DLM:
+
+1. **Token-importance graph.** Run the *reference* DLM on the unmodified text
+   once and keep the multi-layer self-attention to build an L×L token
+   adjacency matrix.
+2. **Diverse subset sampling.** For each of the `steps` progressive masking
+   rounds, draw `num_subsets` disjoint groups of `subset_size` tokens using a
+   graph sampler with an internal-connectivity coefficient (`sample_alpha`)
+   and a cross-subset diversity penalty (`lambda_penalty`) — see
+   `sample_engine` in [`attack/attacks/its.py`](attack/attacks/its.py).
+3. **Per-subset loss comparison.** Mask the sampled tokens on both the target
+   and reference models in parallel; record the per-token cross-entropy on the
+   newly masked positions.
+4. **Vote + aggregate.** Each subset votes `ref_loss > target_loss`; votes are
+   averaged inside a step, and the mean across steps becomes the final
+   membership score.
 
 ## Repository Structure
 
 ```
 .
-├── trainer/         # DLM training module
-│   ├── model/       # Model architectures
-│   ├── configs/     # Training configurations
-│   └── train.py     # Main training script
-├── attack/          # MIA implementation module  
-│   ├── attacks/     # Attack implementations (SAMA, baselines)
-│   ├── configs/     # Attack configurations
-│   └── run.py       # Main attack script
-└── dataset/         # Dataset preparation utilities
+├── trainer/                    # DLM fine-tuning module
+│   ├── model/
+│   │   ├── llada/              # LLaDA-8B architecture files
+│   │   └── dream/              # Dream-v0-Base-7B architecture files
+│   ├── misc/                   # data.py, env_setup.py, models.py, trainer.py, utils.py
+│   ├── configs/                # Core training YAMLs (see below)
+│   ├── run.py                  # accelerate launch entrypoint
+│   ├── run_train.sh            # Consolidated training launcher
+│   └── requirements.txt
+│
+├── attack/                     # Membership-inference attacks
+│   ├── attacks/                # Attack implementations
+│   │   ├── its.py              # ← proposed method (ITS)
+│   │   ├── sama.py             # SAMA baseline (Chen et al., 2026)
+│   │   ├── loss.py, ratio.py, zlib.py           # NLL / Loss-Calibration / Zlib
+│   │   ├── dfmia.py, mink.py, minkpp.py         # DF-MIA, Min-K, Min-K++
+│   │   └── utils.py
+│   ├── configs/                # YAMLs for LLaDA-8B targets
+│   ├── configs_dream/          # YAMLs for Dream-7B targets
+│   ├── misc/                   # attack.py, config.py, dataset.py, io.py, metric.py, models.py, ...
+│   ├── run.py                  # Attack entrypoint: python -m attack.run
+│   └── run_attack.sh           # Consolidated attack launcher
+│
+└── dataset/                    # Dataset preparation utilities
+    └── prep.py, prep_mimir.py
 ```
 
 ## Requirements
 
 ### Environment Setup
-```bash
-# Create conda environment
-conda create -n sama python=3.8
-conda activate sama
 
-# Install dependencies
+```bash
+conda create -n its python=3.8
+conda activate its
+
 pip install -r trainer/requirements.txt
-pip install -r attack/requirements.txt
+pip install -r attack/requirements.txt   # if present, otherwise see attack/misc
 ```
 
-## Usage
+### Environment Variables
 
-### Step 0: Configure Environment Variables
-
-Before running any experiments, set the following environment variables to match your platform. You can export them in your shell, add them to your `~/.bashrc`/`~/.zshrc`, or place them in a `.env` file and source it.
-
-```bash
-# Base directory where prepared datasets are stored.
-export SAMA_DATASET_PATH="/path/to/your/datasets"
-
-# Directory to save SAMA attack metadata (step-level scores, subset details).
-export SAMA_METADATA_DIR="/path/to/metadata/output"
-
-# Weights & Biases project and group names for training run tracking.
-export SAMA_WANDB_PROJECT="Diff_LLM"
-export SAMA_WANDB_GROUP="SAMA"
-
-# HuggingFace token for accessing gated/private models.
-export HF_TOKEN="hf_..."
-```
-
-The table below summarizes every environment variable, where it is read, and its default if unset:
-
-| Variable | File(s) | Default |
+| Variable | Used in | Default |
 |---|---|---|
-| `SAMA_DATASET_PATH` | `trainer/configs/prep.py`, `dataset/prep.py`, `dataset/prep_mimir.py` | `./` |
-| `SAMA_METADATA_DIR` | `attack/attacks/sama.py` | `./` |
+| `SAMA_DATASET_PATH` | dataset prep helpers | `./` |
+| `SAMA_METADATA_DIR` | `attack/attacks/its.py`, `attack/attacks/sama.py` | `./` |
 | `SAMA_WANDB_PROJECT` | `trainer/configs/prep.py` | `Diff_LLM` |
 | `SAMA_WANDB_GROUP` | `trainer/configs/prep.py` | `SAMA` |
 | `HF_TOKEN` | `attack/attacks/sama.py`, `attack/attacks/ratio.py` | empty |
 
-### Step 1: Prepare Datasets
+## Usage
 
-Both scripts default their output directory to `$SAMA_DATASET_PATH` (set in Step 0).
-
-```bash
-# Download and prepare MIMIR benchmark datasets
-python dataset/prep_mimir.py
-
-# Prepare standard NLP datasets (wikitext, ag_news, xsum)
-python dataset/prep.py
-```
-
-You can override the output directory or other defaults per-run:
+### 1. Prepare datasets
 
 ```bash
-# Custom output directory and sample count
-python dataset/prep.py --output-dir /tmp/data --num-samples 5000
-
-# Prepare only specific MIMIR subsets
-python dataset/prep_mimir.py --datasets arxiv pile_cc --split-name ngram_13_0.8
+python dataset/prep_mimir.py                # MIMIR benchmark
+python dataset/prep.py                      # wikitext / ag_news / xsum
 ```
 
-Run `python dataset/prep.py --help` or `python dataset/prep_mimir.py --help` for all options.
+### 2. Fine-tune a target DLM
 
-### Step 2: Train Target DLM Models
-
-See `trainer/README.md` for further details.
-
-### Step 3: Run Membership Inference Attacks
+Use the consolidated launcher:
 
 ```bash
-python python -m attack.run \
-    -c attack/configs/config_all.yaml \
-    --output ./attack_results \
-    --base-dir /path/to/your/trained/models
+# LLaDA-8B on MIMIR arxiv (4 epochs, 2 GPUs)
+./trainer/run_train.sh 0,1 2 \
+    LLaDA-8B-Base-pretrained-mimir-arxiv-epoch4.yaml
+
+# Dream-7B on MIMIR arxiv (4 epochs, 2 GPUs)
+./trainer/run_train.sh 2,3 2 \
+    Dream-v0-Base-7B-pretrained-mimir-arxiv-epoch4.yaml
 ```
 
-Key arguments for `attack.run`:
+The four shipped training configs are:
+
+- `trainer/configs/LLaDA-8B-Base-pretrained-mimir-arxiv.yaml`
+- `trainer/configs/LLaDA-8B-Base-pretrained-mimir-arxiv-epoch4.yaml`
+- `trainer/configs/Dream-v0-Base-7B-pretrained-mimir-arxiv.yaml`
+- `trainer/configs/Dream-v0-Base-7B-pretrained-mimir-arxiv-epoch4.yaml`
+
+Run `python trainer/configs/prep.py` to regenerate additional variants
+(dataset, LoRA, etc.).
+
+### 3. Run membership-inference attacks
+
+```bash
+./attack/run_attack.sh \
+    LLaDA-8B-Base-pretrained-mimir-arxiv-4_12_1.0e-5_4_512 \
+    config_its4-p0.1
+
+# or, run the full baseline sweep + ITS in one go:
+./attack/run_attack.sh \
+    LLaDA-8B-Base-pretrained-mimir-arxiv-4_12_1.0e-5_4_512 \
+    config_all config_its4-p0.1
+```
+
+For Dream targets, swap to the matching `configs_dream/` YAMLs.
+
+Under the hood `run_attack.sh` calls:
+
+```bash
+python -m attack.run \
+    -c attack/configs/<config_name>.yaml \
+    --output ./attack_results/<exp_name>/<config_name> \
+    --base-dir ./outputs/<exp_name> \
+    --cache-dir ./attack_results/<exp_name>/cache
+```
 
 | Argument | Description |
 |---|---|
 | `-c, --config` | Path to attack configuration YAML (required) |
 | `--output` | Directory to save results and metadata (required) |
-| `--base-dir` | Base directory for resolving relative model/dataset paths in config (default: `./`) |
-| `--target-model` | Path to target model, overrides config if provided |
-| `--lora-path` | Path to LoRA adapter, overrides config if provided |
-| `--seed` | Random seed (default: `42`) |
+| `--base-dir` | Base directory for resolving relative model/dataset paths |
+| `--target-model` | Path to target model (overrides config) |
+| `--lora-path` | Path to a LoRA adapter (overrides config) |
+| `--seed` | Random seed (default `42`) |
 
 ## Attack Configurations
 
-Edit `attack/configs/config_all.yaml` or create your own attack configurations:
+| Config (in `attack/configs/`) | Purpose |
+|---|---|
+| `config_its4-p0.1.yaml` | ITS at λ=0.1, 4 progressive-mask steps (recommended headline config) |
+| `config_all.yaml` | Runs Loss, Loss-Calibration, Zlib, Sama and Its in one file |
+| `config_dfmia.yaml` | DF-MIA baseline only |
+| `config_mink.yaml`, `config_minkpp.yaml` | Min-K and Min-K++ baselines |
+
+Mirror configs for Dream targets live in `attack/configs_dream/`.
+
+### ITS YAML at a glance
 
 ```yaml
-sama:
-  steps: 16              # Progressive masking steps
-  min_mask_frac: 0.05    # Starting mask fraction  
-  max_mask_frac: 0.50    # Ending mask fraction
-  num_subsets: 128       # Subsets per step
-  subset_size: 10        # Tokens per subset
-  batch_size: 8          # Batch size
-  
-loss:
- module: loss
- mc_num: 4
-
-loss-calibration:
-  module: "ratio"
-  reference_model_path: "GSAI-ML/LLaDA-8B-Base"
-  reference_device: "cuda"
-
-...
+Its:
+  module: "its"
+  steps: 4                   # progressive-mask steps
+  subset_size: 8             # tokens per vote
+  num_subsets: 128           # subsets per step
+  l_schedule: "linear"       # or "geometric"
+  min_mask_frac: 0.05        # mask fraction at step 0
+  max_mask_frac: 0.50        # mask fraction at the last step
+  lambda_penalty: 0.1        # anti-coupling / diversity penalty
+  weight_start_layer_ratio: 0
+  weight_end_layer_ratio: 1  # use all layers' attention as token weights
+  reference_model_path: "GSAI-ML/LLaDA-8B-Base"   # reference DLM
+  batch_size: 8
+  max_length: 512
+  seed: 42
+  save_metadata: false
 ```
 
+## Method: SAMA Baseline (Chen et al., 2026)
 
-## Cite our work
+SAMA ([`attack/attacks/sama.py`](attack/attacks/sama.py)) is the closest prior
+work; it samples random token subsets at each step and compares per-subset
+target-vs-reference loss sums. ITS keeps SAMA's overall progressive-mask
+framework and replaces the *uniform* subset sampler with the attention-aware
+graph sampler (`sample_engine`), which lets the attack focus its votes on the
+tokens that are most informative for distinguishing members from non-members.
+
+Refer to the SAMA paper for the original algorithm and theoretical guarantees:
+
 ```
-@article{chen2026membership,
-  title={Membership Inference Attacks Against Fine-tuned Diffusion Language Models},
-  author={Chen, Yuetian and Zhang, Kaiyuan and Du, Yuntao and Stoppa, Edoardo and Fleming, Charles and Kundu, Ashish and Ribeiro, Bruno and Li, Ninghui},
-  journal={arXiv preprint arXiv:2601.20125},
-  year={2026}
+@inproceedings{chen2026membership,
+  title  = {Membership Inference Attacks Against Fine-tuned Diffusion Language Models},
+  author = {Chen, Yuetian and Zhang, Kaiyuan and Du, Yuntao and Stoppa, Edoardo
+            and Fleming, Charles and Kundu, Ashish and Ribeiro, Bruno and Li, Ninghui},
+  year   = {2026},
+  eprint = {2601.20125},
+  archivePrefix = {arXiv},
 }
 ```
+
+## Other Baselines
+
+| Baseline | File | Idea |
+|---|---|---|
+| Loss | `attack/attacks/loss.py` | Plain per-token NLL averaged over `mc_num` Monte-Carlo masks |
+| Loss-Calibration | `attack/attacks/ratio.py` | NLL divided by the same NLL on a reference DLM |
+| Zlib | `attack/attacks/zlib.py` | NLL divided by zlib compression entropy |
+| DF-MIA | `attack/attacks/dfmia.py` | Reference-free score → pseudo-non-member calibration pool |
+| Min-K | `attack/attacks/mink.py` | Mean of the top-`mink` highest per-token losses |
+| Min-K++ | `attack/attacks/minkpp.py` | Min-K on top of label-normalised log-probabilities |
+
+## Citation
+
+This ITS repository is built on top of [Chen et al. (arXiv:2601.20125)](https://arxiv.org/abs/2601.20125).
+Please cite that work alongside your own publication when using this code.
